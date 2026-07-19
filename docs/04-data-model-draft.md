@@ -122,6 +122,8 @@ INFERRED
 
 Task 4 구현에서는 `entity_candidate`와 `entity_mention` 테이블을 생성했다. 텍스트에서 실제로 발견한 정규 이름과 별칭은 `EntityMention.mentionText`에 원본 문단 근거와 함께 저장한다. 이미지 기반 mention은 Task 5에서 확장한다.
 
+Task 5 구현에서는 `EntityMention.imageId`를 추가하고 `paragraphId`를 nullable로 변경했다. 이미지에서만 발견해 기존 텍스트 후보와 확실히 연결할 수 없는 후보는 `EntityCandidate.originSource=IMAGE`로 구분한다.
+
 ### Character
 
 검수 후 확정된 등장인물이다.
@@ -176,6 +178,8 @@ imageId nullable
 description nullable
 createdAt
 ```
+
+Task 5에서 `extracted_fact` 테이블을 구현했다. 초기 factType은 APPEARANCE, CLOTHING, EXPRESSION, ACTION, LOCATION, INDOOR_OUTDOOR, WEATHER, TIME_OF_DAY, OBJECT로 제한하며, 이미지 근거가 필수다.
 
 factType 예시:
 

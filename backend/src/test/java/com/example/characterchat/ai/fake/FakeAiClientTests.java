@@ -39,6 +39,17 @@ class FakeAiClientTests {
 	}
 
 	@Test
+	void 등록한_이미지_구조화_응답을_타입에_맞게_반환한다() {
+		SampleResult expected = new SampleResult("Alice", 0.95);
+		client.enqueueImageStructuredResponse(SampleResult.class, expected);
+
+		SampleResult actual = client.analyzeImagesStructured(new AiMultimodalRequest(
+				"", "이미지를 분석해 줘", List.of(Path.of("sample.png")), null), SampleResult.class);
+
+		assertThat(actual).isSameAs(expected);
+	}
+
+	@Test
 	void 준비된_응답이_없으면_명확한_예외를_던진다() {
 		assertThatThrownBy(() -> client.generateText(new AiTextRequest("", "질문")))
 				.isInstanceOf(AiClientException.class)

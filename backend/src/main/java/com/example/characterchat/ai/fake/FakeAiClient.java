@@ -19,6 +19,7 @@ public class FakeAiClient implements AiClient {
 	private final Deque<String> textResponses = new ArrayDeque<>();
 	private final Deque<String> imageResponses = new ArrayDeque<>();
 	private final Map<Class<?>, Deque<Object>> structuredResponses = new HashMap<>();
+	private final Map<Class<?>, Deque<Object>> imageStructuredResponses = new HashMap<>();
 
 	public void enqueueTextResponse(String response) {
 		textResponses.addLast(response);
@@ -30,6 +31,10 @@ public class FakeAiClient implements AiClient {
 
 	public <T> void enqueueStructuredResponse(Class<T> responseType, T response) {
 		structuredResponses.computeIfAbsent(responseType, ignored -> new ArrayDeque<>()).addLast(response);
+	}
+
+	public <T> void enqueueImageStructuredResponse(Class<T> responseType, T response) {
+		imageStructuredResponses.computeIfAbsent(responseType, ignored -> new ArrayDeque<>()).addLast(response);
 	}
 
 	@Override
@@ -51,10 +56,20 @@ public class FakeAiClient implements AiClient {
 		return poll(imageResponses, "이미지");
 	}
 
+	@Override
+	public <T> T analyzeImagesStructured(AiMultimodalRequest request, Class<T> responseType) {
+		Deque<Object> responses = imageStructuredResponses.get(responseType);
+		if (responses == null || responses.isEmpty()) {
+			throw new AiClientException("등록된 Fake 이미지 구조화 응답이 없습니다: " + responseType.getName());
+		}
+		return responseType.cast(responses.removeFirst());
+	}
+
 	public void clear() {
 		textResponses.clear();
 		imageResponses.clear();
 		structuredResponses.clear();
+		imageStructuredResponses.clear();
 	}
 
 	private String poll(Deque<String> responses, String type) {

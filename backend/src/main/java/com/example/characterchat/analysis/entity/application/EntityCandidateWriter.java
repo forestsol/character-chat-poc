@@ -22,7 +22,7 @@ public class EntityCandidateWriter {
 					draft.description(), draft.confidence());
 			mapper.insertCandidate(candidate);
 			for (MentionDraft mention : draft.mentions()) {
-				mapper.insertMention(new EntityMention(null, candidate.getId(), mention.paragraphId(),
+				mapper.insertMention(new EntityMention(null, candidate.getId(), mention.paragraphId(), null,
 						mention.mentionText(), "TEXT", mention.confidence()));
 			}
 		}

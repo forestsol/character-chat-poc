@@ -87,6 +87,40 @@ public class OpenAiAiClient implements AiClient {
 		}
 	}
 
+	@Override
+	public <T> T analyzeImagesStructured(AiMultimodalRequest request, Class<T> responseType) {
+		try {
+			ResponseInputItem input = imageInput(request);
+			StructuredResponseCreateParams<T> params = ResponseCreateParams.builder()
+					.model(properties.getModel())
+					.inputOfResponse(List.of(input))
+					.instructions(request.systemPrompt())
+					.text(responseType)
+					.build();
+			StructuredResponse<T> response = client.responses().create(params);
+			return response.output().stream()
+					.flatMap(item -> item.message().stream())
+					.flatMap(message -> message.content().stream())
+					.flatMap(content -> content.outputText().stream())
+					.findFirst()
+					.orElseThrow(() -> new AiClientException("OpenAI 이미지 구조화 응답에 출력이 없습니다."));
+		} catch (AiClientException exception) {
+			throw exception;
+		} catch (Exception exception) {
+			throw translate("OpenAI 이미지 구조화 응답 생성에 실패했습니다.", exception);
+		}
+	}
+
+	private ResponseInputItem imageInput(AiMultimodalRequest request) throws IOException {
+		ResponseInputItem.Message.Builder message = ResponseInputItem.Message.builder()
+				.role(ResponseInputItem.Message.Role.USER)
+				.addInputTextContent(request.userPrompt());
+		for (Path imagePath : request.imagePaths()) {
+			message.addContent(toImage(imagePath, request.imageDetail()));
+		}
+		return ResponseInputItem.ofMessage(message.build());
+	}
+
 	private ResponseCreateParams.Builder baseBuilder(AiTextRequest request) {
 		ResponseCreateParams.Builder builder = ResponseCreateParams.builder()
 				.model(properties.getModel())

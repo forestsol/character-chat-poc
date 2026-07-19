@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.characterchat.analysis.image.persistence.ImageAnalysisMapper">
+
+	<delete id="deleteImageFactsByBookId">DELETE FROM extracted_fact WHERE book_id = #{bookId}</delete>
+
+	<delete id="deleteImageMentionsByBookId">
+		DELETE FROM entity_mention em USING entity_candidate ec
+		WHERE em.entity_candidate_id = ec.id AND ec.book_id = #{bookId}
+		  AND em.source_type IN ('IMAGE', 'TEXT_AND_IMAGE')
+	</delete>
+
+	<delete id="deleteImageCandidatesByBookId">
+		DELETE FROM entity_candidate WHERE book_id = #{bookId} AND origin_source = 'IMAGE'
+	</delete>
+
+	<insert id="insertImageCandidate" useGeneratedKeys="true" keyProperty="id">
+		INSERT INTO entity_candidate (book_id, entity_type, canonical_name, description, confidence, review_status, origin_source)
+		VALUES (#{bookId}, #{entityType}, #{canonicalName}, #{description}, #{confidence}, #{reviewStatus}, #{originSource})
+	</insert>
+
+	<insert id="insertImageMention">
+		INSERT INTO entity_mention (entity_candidate_id, paragraph_id, image_id, mention_text, source_type, confidence)
+		VALUES (#{entityCandidateId}, NULL, #{imageId}, #{mentionText}, #{sourceType}, #{confidence})
+	</insert>
+
+	<insert id="insertFact" useGeneratedKeys="true" keyProperty="id">
+		INSERT INTO extracted_fact (book_id, fact_type, subject_candidate_id, value, source_type, status,
+			confidence, paragraph_id, image_id, description)
+		VALUES (#{bookId}, #{factType}, #{subjectCandidateId}, #{value}, #{sourceType}, #{status},
+			#{confidence}, #{paragraphId}, #{imageId}, #{description})
+	</insert>
+
+	<select id="findFactsByBookId" resultType="com.example.characterchat.analysis.image.domain.ExtractedFact">
+		SELECT id, book_id, fact_type, subject_candidate_id, value, source_type, status, confidence,
+			paragraph_id, image_id, description
+		FROM extracted_fact WHERE book_id = #{bookId} ORDER BY image_id, id
+	</select>
+
+	<update id="updateBookStatus">
+		UPDATE book SET status = 'MULTIMODAL_MERGED', updated_at = CURRENT_TIMESTAMP WHERE id = #{bookId}
+	</update>
+</mapper>

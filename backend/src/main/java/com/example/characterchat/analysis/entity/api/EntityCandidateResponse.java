@@ -33,9 +33,9 @@ public record EntityCandidateResponse(
 		}).toList();
 	}
 
-	public record Mention(Long id, Long paragraphId, String mentionText, String sourceType, double confidence) {
+	public record Mention(Long id, Long paragraphId, Long imageId, String mentionText, String sourceType, double confidence) {
 		static Mention from(EntityMention mention) {
-			return new Mention(mention.id(), mention.paragraphId(), mention.mentionText(), mention.sourceType(), mention.confidence());
+			return new Mention(mention.id(), mention.paragraphId(), mention.imageId(), mention.mentionText(), mention.sourceType(), mention.confidence());
 		}
 	}
 }

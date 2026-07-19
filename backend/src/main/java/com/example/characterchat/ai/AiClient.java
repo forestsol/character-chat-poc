@@ -7,4 +7,6 @@ public interface AiClient {
 	<T> T generateStructured(AiTextRequest request, Class<T> responseType);
 
 	String analyzeImages(AiMultimodalRequest request);
+
+	<T> T analyzeImagesStructured(AiMultimodalRequest request, Class<T> responseType);
 }

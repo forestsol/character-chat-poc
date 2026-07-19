@@ -10,6 +10,7 @@ public class EntityCandidate {
 	private String description;
 	private double confidence;
 	private String reviewStatus;
+	private String originSource;
 	private OffsetDateTime createdAt;
 
 	public EntityCandidate() {}
@@ -21,6 +22,14 @@ public class EntityCandidate {
 		this.description = description;
 		this.confidence = confidence;
 		this.reviewStatus = "PENDING";
+		this.originSource = "TEXT";
+	}
+
+	public static EntityCandidate fromImage(Long bookId, EntityType entityType, String canonicalName,
+			String description, double confidence) {
+		EntityCandidate candidate = new EntityCandidate(bookId, entityType, canonicalName, description, confidence);
+		candidate.originSource = "IMAGE";
+		return candidate;
 	}
 
 	public Long getId() { return id; }
@@ -37,6 +46,8 @@ public class EntityCandidate {
 	public void setConfidence(double confidence) { this.confidence = confidence; }
 	public String getReviewStatus() { return reviewStatus; }
 	public void setReviewStatus(String reviewStatus) { this.reviewStatus = reviewStatus; }
+	public String getOriginSource() { return originSource; }
+	public void setOriginSource(String originSource) { this.originSource = originSource; }
 	public OffsetDateTime getCreatedAt() { return createdAt; }
 	public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
 }

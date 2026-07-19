@@ -3,22 +3,22 @@
 <mapper namespace="com.example.characterchat.analysis.entity.persistence.EntityCandidateMapper">
 
 	<insert id="insertCandidate" useGeneratedKeys="true" keyProperty="id">
-		INSERT INTO entity_candidate (book_id, entity_type, canonical_name, description, confidence, review_status)
-		VALUES (#{bookId}, #{entityType}, #{canonicalName}, #{description}, #{confidence}, #{reviewStatus})
+		INSERT INTO entity_candidate (book_id, entity_type, canonical_name, description, confidence, review_status, origin_source)
+		VALUES (#{bookId}, #{entityType}, #{canonicalName}, #{description}, #{confidence}, #{reviewStatus}, #{originSource})
 	</insert>
 
 	<insert id="insertMention">
-		INSERT INTO entity_mention (entity_candidate_id, paragraph_id, mention_text, source_type, confidence)
-		VALUES (#{entityCandidateId}, #{paragraphId}, #{mentionText}, #{sourceType}, #{confidence})
+		INSERT INTO entity_mention (entity_candidate_id, paragraph_id, image_id, mention_text, source_type, confidence)
+		VALUES (#{entityCandidateId}, #{paragraphId}, #{imageId}, #{mentionText}, #{sourceType}, #{confidence})
 	</insert>
 
 	<select id="findCandidatesByBookId" resultType="com.example.characterchat.analysis.entity.domain.EntityCandidate">
-		SELECT id, book_id, entity_type, canonical_name, description, confidence, review_status, created_at
+		SELECT id, book_id, entity_type, canonical_name, description, confidence, review_status, origin_source, created_at
 		FROM entity_candidate WHERE book_id = #{bookId} ORDER BY entity_type, canonical_name
 	</select>
 
 	<select id="findMentionsByBookId" resultType="com.example.characterchat.analysis.entity.domain.EntityMention">
-		SELECT em.id, em.entity_candidate_id, em.paragraph_id, em.mention_text, em.source_type, em.confidence
+		SELECT em.id, em.entity_candidate_id, em.paragraph_id, em.image_id, em.mention_text, em.source_type, em.confidence
 		FROM entity_mention em
 		JOIN entity_candidate ec ON ec.id = em.entity_candidate_id
 		WHERE ec.book_id = #{bookId}

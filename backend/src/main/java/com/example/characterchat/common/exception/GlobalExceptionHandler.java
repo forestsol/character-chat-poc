@@ -1,6 +1,7 @@
 package com.example.characterchat.common.exception;
 
 import com.example.characterchat.analysis.entity.application.EntityExtractionException;
+import com.example.characterchat.analysis.image.application.ImageAnalysisException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,6 +35,11 @@ public class GlobalExceptionHandler {
 
 	@ExceptionHandler(EntityExtractionException.class)
 	public ResponseEntity<ApiErrorResponse> handleAiAnalysis(EntityExtractionException exception, HttpServletRequest request) {
+		return response(HttpStatus.BAD_GATEWAY, exception.getMessage(), request);
+	}
+
+	@ExceptionHandler(ImageAnalysisException.class)
+	public ResponseEntity<ApiErrorResponse> handleImageAnalysis(ImageAnalysisException exception, HttpServletRequest request) {
 		return response(HttpStatus.BAD_GATEWAY, exception.getMessage(), request);
 	}
 

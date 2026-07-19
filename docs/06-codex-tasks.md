@@ -160,7 +160,7 @@ BLOCKED
 
 ## Task 5. 페이지별 이미지 분석과 멀티모달 정보 병합
 
-상태: TODO
+상태: DONE
 
 목표:
 
@@ -172,6 +172,18 @@ BLOCKED
 - 텍스트와 이미지 결과 병합
 - UNKNOWN과 CONFLICT 표현
 - 테스트
+
+완료 기록:
+
+- `AiClient`에 이미지 구조화 응답 메서드와 OpenAI/Fake 구현 추가
+- `EntityMention.imageId`, 이미지 후보 출처와 `extracted_fact` 테이블 구현
+- 페이지 원문, 현재 후보와 해당 페이지 이미지를 함께 전달하는 멀티모달 분석 구현
+- 기존 텍스트 후보의 이미지 근거 병합과 미확정 이미지 후보 분리 저장 구현
+- 외모, 옷차림, 표정, 행동, 장소, 실내외, 날씨, 시간대, 물건 관찰 사실 검증 및 저장
+- `CONFIRMED`, `CANDIDATE`, `UNKNOWN`, `CONFLICT` 상태와 IMAGE/TEXT_AND_IMAGE 출처 검증
+- 모든 페이지 성공 후 이미지 결과만 교체·병합하고 책 상태를 `MULTIMODAL_MERGED`로 전환
+- 이미지 분석 실행·사실 조회 API와 Fake 기반 10페이지 통합 테스트 구현
+- `alice-demo` 대표 삽화의 실제 OpenAI 구조화 멀티모달 분석 검증 완료
 
 ---
 
