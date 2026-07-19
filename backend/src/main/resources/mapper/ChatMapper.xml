@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.characterchat.chat.persistence.ChatMapper">
+	<select id="findDirectRelations" resultType="com.example.characterchat.chat.domain.DirectKnowledgeRelation">
+		SELECT relation.id, source.name AS source_name, source.entity_type AS source_type,
+			relation.relation_type, target.name AS target_name, target.entity_type AS target_type,
+			relation.description, relation.confidence, relation.review_status
+		FROM knowledge_relation relation
+		JOIN knowledge_entity source ON source.id = relation.source_entity_id
+		JOIN knowledge_entity target ON target.id = relation.target_entity_id
+		WHERE relation.book_id = #{bookId}
+		  AND (relation.source_entity_id = #{knowledgeEntityId} OR relation.target_entity_id = #{knowledgeEntityId})
+		ORDER BY relation.id
+	</select>
+	<update id="updateBookStatus">
+		UPDATE book SET status = #{status}, updated_at = CURRENT_TIMESTAMP WHERE id = #{bookId}
+	</update>
+</mapper>
+

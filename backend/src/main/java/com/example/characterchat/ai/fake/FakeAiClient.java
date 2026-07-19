@@ -20,6 +20,7 @@ public class FakeAiClient implements AiClient {
 	private final Deque<String> imageResponses = new ArrayDeque<>();
 	private final Map<Class<?>, Deque<Object>> structuredResponses = new HashMap<>();
 	private final Map<Class<?>, Deque<Object>> imageStructuredResponses = new HashMap<>();
+	private AiTextRequest lastTextRequest;
 
 	public void enqueueTextResponse(String response) {
 		textResponses.addLast(response);
@@ -44,6 +45,7 @@ public class FakeAiClient implements AiClient {
 
 	@Override
 	public <T> T generateStructured(AiTextRequest request, Class<T> responseType) {
+		lastTextRequest = request;
 		Deque<Object> responses = structuredResponses.get(responseType);
 		if (responses == null || responses.isEmpty()) {
 			throw new AiClientException("등록된 Fake 구조화 응답이 없습니다: " + responseType.getName());
@@ -70,6 +72,11 @@ public class FakeAiClient implements AiClient {
 		imageResponses.clear();
 		structuredResponses.clear();
 		imageStructuredResponses.clear();
+		lastTextRequest = null;
+	}
+
+	public AiTextRequest getLastTextRequest() {
+		return lastTextRequest;
 	}
 
 	private String poll(Deque<String> responses, String type) {
