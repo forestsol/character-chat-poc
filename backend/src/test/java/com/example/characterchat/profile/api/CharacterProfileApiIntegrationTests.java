@@ -57,6 +57,35 @@ class CharacterProfileApiIntegrationTests {
 		mockMvc.perform(get("/api/books/{bookId}/character-profile",setup.bookId)).andExpect(status().isNotFound());
 	}
 
+	@Test
+	void 이미지가_한_장인_페이지는_잘못된_imageOrder를_실제_이미지로_교정한다() throws Exception {
+		Setup setup=setupActiveCharacter();
+		ProfileGenerationAiResponse response=response(0);
+		ProfileGenerationAiResponse.Evidence evidence=response.evidence.get(0);
+		evidence.pageNumber=1; evidence.imageOrder=99; evidence.sourceType="IMAGE";
+		fakeAiClient.enqueueStructuredResponse(ProfileGenerationAiResponse.class,response);
+
+		mockMvc.perform(post("/api/books/{bookId}/character-profile/generate",setup.bookId))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.evidence[0].imageId").isNumber())
+				.andExpect(jsonPath("$.evidence[0].paragraphId").doesNotExist());
+	}
+
+	@Test
+	void 잘못된_이미지_근거만_제외하고_유효한_텍스트_근거로_프로필을_생성한다() throws Exception {
+		Setup setup=setupActiveCharacter();
+		ProfileGenerationAiResponse response=response(1);
+		ProfileGenerationAiResponse.Evidence invalidImage=response(0).evidence.get(0);
+		invalidImage.pageNumber=999; invalidImage.imageOrder=1; invalidImage.sourceType="IMAGE";
+		response.evidence=List.of(response.evidence.get(0),invalidImage);
+		fakeAiClient.enqueueStructuredResponse(ProfileGenerationAiResponse.class,response);
+
+		mockMvc.perform(post("/api/books/{bookId}/character-profile/generate",setup.bookId))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.evidence.length()").value(1))
+				.andExpect(jsonPath("$.evidence[0].paragraphId").isNumber());
+	}
+
 	private Setup setupActiveCharacter(){
 		Long bookId=bookService.importBook(BOOK_KEY).id();
 		EntityCandidate candidate=new EntityCandidate(bookId,EntityType.CHARACTER,"앨리스","이야기의 주인공",0.98);

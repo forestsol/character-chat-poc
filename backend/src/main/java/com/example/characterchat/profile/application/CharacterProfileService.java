@@ -90,6 +90,7 @@ public class CharacterProfileService {
 		Map<Long, Integer> pageNumbers = pages.stream().collect(Collectors.toMap(BookPage::getId, BookPage::getPageNumber));
 		Map<Long, String> imageLocations = images.stream().collect(Collectors.toMap(BookImage::id,
 				image -> "pageNumber=" + pageNumbers.get(image.pageId()) + ", imageOrder=" + image.imageOrder()));
+		String allowedImageLocations = imageLocations.values().stream().sorted().distinct().collect(Collectors.joining("\n"));
 		String text = paragraphs.stream().map(p -> "[sourceOrder=" + p.sourceOrder() + "] " + p.content()).collect(Collectors.joining("\n\n"));
 		String facts = imageMapper.findFactsByBookId(book.getId()).stream()
 				.filter(f -> f.getSubjectCandidateId() == null || f.getSubjectCandidateId().equals(character.candidateId()))
@@ -106,6 +107,7 @@ public class CharacterProfileService {
 						+ entityNames.get(r.targetEntityId()) + ": " + r.description()).collect(Collectors.joining("\n"));
 		return "책: " + book.getTitle() + "\n대상: " + character.name() + "\n최종 역할: " + character.narrativeRole()
 				+ "\n별칭: " + String.join(", ", profileMapper.findAliasesByCharacterId(character.id()))
+				+ "\n\n사용 가능한 이미지 근거 좌표(아래 조합만 사용):\n" + empty(allowedImageLocations)
 				+ "\n\n관련 이미지 사실:\n" + empty(facts) + "\n\n참여 사건:\n" + empty(eventText)
 				+ "\n\n직접 관계:\n" + empty(relationText) + "\n\n전체 원문:\n" + text;
 	}
@@ -116,16 +118,22 @@ public class CharacterProfileService {
 		Map<Integer, BookParagraph> paragraphMap = paragraphs.stream().collect(Collectors.toMap(BookParagraph::sourceOrder, Function.identity()));
 		Map<Long, Integer> pageNumbers = pages.stream().collect(Collectors.toMap(BookPage::getId, BookPage::getPageNumber));
 		Map<String, BookImage> imageMap = images.stream().collect(Collectors.toMap(i -> pageNumbers.get(i.pageId()) + ":" + i.imageOrder(), Function.identity()));
+		Map<Integer, List<BookImage>> imagesByPageNumber = images.stream()
+				.collect(Collectors.groupingBy(image -> pageNumbers.get(image.pageId())));
 		List<ProfileEvidenceDraft> result = new ArrayList<>();
 		for (ProfileGenerationAiResponse.Evidence value : response.evidence) {
 			String field = allowed(value.profileField, FIELDS, "profileField");
 			String sourceType = allowed(value.sourceType, SOURCE_TYPES, "sourceType");
 			String inferenceType = allowed(value.inferenceType, INFERENCE_TYPES, "inferenceType");
 			Long paragraphId = value.sourceOrder > 0 && paragraphMap.get(value.sourceOrder) != null ? paragraphMap.get(value.sourceOrder).id() : null;
-			Long imageId = value.pageNumber > 0 && imageMap.get(value.pageNumber + ":" + value.imageOrder) != null
-					? imageMap.get(value.pageNumber + ":" + value.imageOrder).id() : null;
+			BookImage evidenceImage = value.pageNumber > 0 ? imageMap.get(value.pageNumber + ":" + value.imageOrder) : null;
+			if (evidenceImage == null && value.pageNumber > 0) {
+				List<BookImage> pageImages = imagesByPageNumber.getOrDefault(value.pageNumber, List.of());
+				if (pageImages.size() == 1) evidenceImage = pageImages.get(0);
+			}
+			Long imageId = evidenceImage == null ? null : evidenceImage.id();
 			if (value.sourceOrder > 0 && paragraphId == null) throw new CharacterProfileException("없는 sourceOrder입니다: " + value.sourceOrder);
-			if ((value.pageNumber > 0 || value.imageOrder > 0) && imageId == null) throw new CharacterProfileException("없는 이미지 근거입니다.");
+			if ((value.pageNumber > 0 || value.imageOrder > 0) && imageId == null) continue;
 			if (paragraphId == null && imageId == null) throw new CharacterProfileException("프로필 근거 좌표가 필요합니다.");
 			if ("TEXT".equals(sourceType) && paragraphId == null || "IMAGE".equals(sourceType) && imageId == null
 					|| "TEXT_AND_IMAGE".equals(sourceType) && (paragraphId == null || imageId == null))
@@ -134,6 +142,7 @@ public class CharacterProfileService {
 			result.add(new ProfileEvidenceDraft(field, paragraphId, imageId, sourceType, inferenceType,
 					required(value.description, "evidence description"), value.confidence));
 		}
+		if (result.isEmpty()) throw new CharacterProfileException("검증 가능한 프로필 근거가 없습니다.");
 		return result;
 	}
 
