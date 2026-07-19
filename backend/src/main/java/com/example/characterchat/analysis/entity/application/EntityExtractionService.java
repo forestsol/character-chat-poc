@@ -161,7 +161,10 @@ public class EntityExtractionService {
 				if (paragraph == null) throw new EntityExtractionException("현재 배치에 없는 sourceOrder입니다: " + evidence.sourceOrder);
 				String mention = requireText(evidence.mentionText, "mentionText");
 				if (!paragraph.content().contains(mention)) {
-					throw new EntityExtractionException("근거 문단에 mentionText가 없습니다: " + mention);
+					paragraph = paragraphs.values().stream()
+							.filter(candidate -> candidate.content().contains(mention))
+							.min(java.util.Comparator.comparingInt(candidate -> Math.abs(candidate.sourceOrder() - evidence.sourceOrder)))
+							.orElseThrow(() -> new EntityExtractionException("현재 배치 원문에 mentionText가 없습니다: " + mention));
 				}
 				result.add(new MentionDraft(paragraph.id(), mention, entity.confidence));
 			}

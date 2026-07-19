@@ -80,6 +80,21 @@ class EntityCandidateApiIntegrationTests {
 	}
 
 	@Test
+	void mentionText가_같은_배치의_다른_문단에_있으면_근거_문단을_교정한다() throws Exception {
+		long bookId = importBook();
+		fakeAiClient.enqueueStructuredResponse(EntityExtractionAiResponse.class,
+				response("CHARACTER", "Alice", List.of(), "주인공", 0.9, 2, "ALICE"));
+		EntityExtractionAiResponse emptyResponse = new EntityExtractionAiResponse();
+		emptyResponse.entities = List.of();
+		fakeAiClient.enqueueStructuredResponse(EntityExtractionAiResponse.class, emptyResponse);
+
+		mockMvc.perform(post("/api/books/{bookId}/entity-candidates/extract", bookId))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$[0].canonicalName").value("Alice"))
+				.andExpect(jsonPath("$[0].mentions[0].mentionText").value("ALICE"));
+	}
+
+	@Test
 	void 재분석이_실패하면_기존_후보를_유지한다() throws Exception {
 		long bookId = importBook();
 		fakeAiClient.enqueueStructuredResponse(EntityExtractionAiResponse.class,
