@@ -245,6 +245,8 @@ UNKNOWN
 
 프로필은 매 대화에서 항상 필요하므로 DB에서 직접 조회한다.
 
+초기 구현은 chatEnabled Character 한 명만 대상으로 전체 원문, 관련 이미지 관찰 사실, 참여 사건과 직접 KG 관계를 한 번의 구조화 요청으로 종합한다. 프로필은 `AFTER_FINAL_EVENT` 시점으로 저장하고, 각 근거는 EXPLICIT 또는 INFERRED와 원본 문단·이미지 ID를 함께 보존한다.
+
 ### 단계 10. 기본 RAG 검색
 
 RAG 문서와 임베딩은 PostgreSQL에 저장하고, 임베딩 저장 및 벡터 유사도 검색에는 pgvector를 사용한다.

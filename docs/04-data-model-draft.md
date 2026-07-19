@@ -326,6 +326,8 @@ AFTER_FINAL_EVENT
 
 긴 텍스트 필드를 하나의 문자열로 저장할지 구조화된 하위 테이블 또는 JSON으로 저장할지는 미정이다.
 
+Task 8 구현에서는 초기 프로필 필드를 각각 TEXT 컬럼으로 저장한다. 현재 PoC의 고정 필드가 명확하고 조회 시 항상 함께 사용되므로 JSON 컬럼은 도입하지 않았다. storyPoint는 `AFTER_FINAL_EVENT`로 저장한다.
+
 ### ProfileEvidence
 
 ```text
@@ -346,6 +348,8 @@ inferenceType:
 EXPLICIT
 INFERRED
 ```
+
+Task 8에서 `character_profile`, `profile_evidence` 테이블을 구현했다. 근거는 허용된 profileField, sourceType, inferenceType, 신뢰도와 문단 또는 이미지 ID를 저장하며 원본이 삭제되면 함께 삭제된다.
 
 ## 8. RAG
 

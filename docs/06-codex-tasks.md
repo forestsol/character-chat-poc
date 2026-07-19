@@ -249,7 +249,7 @@ BLOCKED
 
 ## Task 8. 최종 캐릭터 프로필 생성
 
-상태: TODO
+상태: DONE
 
 목표:
 
@@ -260,6 +260,17 @@ BLOCKED
 - 근거 연결
 - 프로필 조회 API
 - 테스트
+
+완료 기록:
+
+- `character_profile`, `profile_evidence` 테이블과 MyBatis 매핑 구현
+- chatEnabled Character 한 명만 대상으로 하는 프로필 생성 조건 구현
+- 전체 원문, 관련 이미지 사실, 참여 사건과 직접 KG 관계 컨텍스트 조립
+- 결말 직후 역할·외모·성격·가치관·목표·말투·경험·태도·지식 구조화 생성
+- profileField, 원문·이미지 좌표, sourceType, EXPLICIT/INFERRED와 신뢰도 검증
+- 모든 검증 성공 후 프로필과 근거 교체 및 `PROFILE_GENERATED` 상태 전환
+- 프로필 생성·조회 API와 Fake 기반 근거 통합 테스트 구현
+- `alice-demo` 실제 OpenAI 결말 직후 앨리스 프로필 생성 검증 완료
 
 ---
 

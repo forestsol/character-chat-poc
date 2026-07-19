@@ -5,6 +5,8 @@ import com.example.characterchat.analysis.image.application.ImageAnalysisExcepti
 import com.example.characterchat.analysis.kg.application.KnowledgeGraphException;
 import com.example.characterchat.review.application.CharacterReviewException;
 import com.example.characterchat.review.application.RoleRecommendationException;
+import com.example.characterchat.profile.application.CharacterProfileException;
+import com.example.characterchat.profile.application.ProfileNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,6 +61,16 @@ public class GlobalExceptionHandler {
 	@ExceptionHandler(RoleRecommendationException.class)
 	public ResponseEntity<ApiErrorResponse> handleRoleRecommendation(RoleRecommendationException exception, HttpServletRequest request) {
 		return response(HttpStatus.BAD_GATEWAY, exception.getMessage(), request);
+	}
+
+	@ExceptionHandler(CharacterProfileException.class)
+	public ResponseEntity<ApiErrorResponse> handleCharacterProfile(CharacterProfileException exception, HttpServletRequest request) {
+		return response(HttpStatus.BAD_GATEWAY, exception.getMessage(), request);
+	}
+
+	@ExceptionHandler(ProfileNotFoundException.class)
+	public ResponseEntity<ApiErrorResponse> handleProfileNotFound(ProfileNotFoundException exception, HttpServletRequest request) {
+		return response(HttpStatus.NOT_FOUND, exception.getMessage(), request);
 	}
 
 	@ExceptionHandler(Exception.class)

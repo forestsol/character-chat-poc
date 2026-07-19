@@ -265,3 +265,15 @@ OpenAI 공식 Java SDK와 Responses API를 사용한다. 현재 SDK 버전은 4.
 - 책마다 chatEnabled Character는 한 명만 허용하며 DB 부분 유일 인덱스와 서비스 검증을 함께 사용한다.
 - 활성 캐릭터가 정확히 한 명이면 책 상태는 `CHARACTERS_REVIEWED`, 없으면 `KG_BUILT`로 유지 또는 복귀한다.
 - 초기 검수는 REST API로 수행하고 화면은 후속 Next.js 작업에서 구현한다.
+
+## D-026. 최종 캐릭터 프로필과 근거
+
+상태: 확정
+
+- 책에서 유일한 chatEnabled Character만 프로필 생성 대상으로 한다.
+- 프로필 시점은 결말 직후인 `AFTER_FINAL_EVENT`로 고정한다.
+- 초기 고정 프로필 필드는 JSON이 아니라 `character_profile`의 개별 TEXT 컬럼으로 저장한다.
+- 프로필 값과 근거는 분리하고 `profile_evidence`에 profileField, 원문·이미지 ID, sourceType, EXPLICIT/INFERRED 및 신뢰도를 저장한다.
+- 근거 없는 특성은 생성하지 않고 확인할 수 없음으로 표현한다.
+- 모든 AI 응답과 근거 검증이 성공한 뒤 해당 Character의 기존 프로필을 한 트랜잭션으로 교체한다.
+- 생성된 systemPrompt는 초안으로 저장하며 실제 대화 조립은 Task 10에서 다시 검토한다.

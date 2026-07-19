@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.characterchat.profile.persistence.CharacterProfileMapper">
+	<select id="findChatEnabledCharacterByBookId" resultType="com.example.characterchat.review.domain.CharacterRecord">
+		SELECT id, book_id, candidate_id, knowledge_entity_id, name, narrative_role, chat_enabled, reviewed
+		FROM character WHERE book_id=#{bookId} AND chat_enabled=TRUE
+	</select>
+	<select id="findAliasesByCharacterId" resultType="string">
+		SELECT alias FROM character_alias WHERE character_id=#{characterId} ORDER BY alias
+	</select>
+	<delete id="deleteProfileByCharacterId">DELETE FROM character_profile WHERE character_id=#{characterId}</delete>
+	<insert id="insertProfile" useGeneratedKeys="true" keyProperty="id">
+		INSERT INTO character_profile (character_id, story_point, role_description, appearance, personality,
+			values_text, goals, speech_style, major_experiences, attitudes_toward_others, known_facts, system_prompt)
+		VALUES (#{characterId}, #{storyPoint}, #{roleDescription}, #{appearance}, #{personality},
+			#{values}, #{goals}, #{speechStyle}, #{majorExperiences}, #{attitudesTowardOthers}, #{knownFacts}, #{systemPrompt})
+	</insert>
+	<insert id="insertEvidence">
+		INSERT INTO profile_evidence (character_profile_id, profile_field, paragraph_id, image_id, source_type,
+			inference_type, description, confidence)
+		VALUES (#{characterProfileId}, #{profileField}, #{paragraphId}, #{imageId}, #{sourceType},
+			#{inferenceType}, #{description}, #{confidence})
+	</insert>
+	<select id="findProfileByBookId" resultType="com.example.characterchat.profile.domain.CharacterProfile">
+		SELECT cp.id, cp.character_id, cp.story_point, cp.role_description, cp.appearance, cp.personality,
+			cp.values_text AS values, cp.goals, cp.speech_style, cp.major_experiences,
+			cp.attitudes_toward_others, cp.known_facts, cp.system_prompt
+		FROM character_profile cp JOIN character c ON c.id=cp.character_id WHERE c.book_id=#{bookId} AND c.chat_enabled=TRUE
+	</select>
+	<select id="findEvidenceByProfileId" resultType="com.example.characterchat.profile.domain.ProfileEvidence">
+		SELECT id, character_profile_id, profile_field, paragraph_id, image_id, source_type,
+			inference_type, description, confidence FROM profile_evidence
+		WHERE character_profile_id=#{profileId} ORDER BY profile_field, id
+	</select>
+	<update id="updateBookStatus">
+		UPDATE book SET status='PROFILE_GENERATED', updated_at=CURRENT_TIMESTAMP WHERE id=#{bookId}
+	</update>
+</mapper>
