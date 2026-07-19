@@ -13,7 +13,8 @@
 	</insert>
 
 	<select id="findCandidatesByBookId" resultType="com.example.characterchat.analysis.entity.domain.EntityCandidate">
-		SELECT id, book_id, entity_type, canonical_name, description, confidence, review_status, origin_source, created_at
+		SELECT id, book_id, entity_type, canonical_name, description, confidence, review_status, origin_source,
+			recommended_role, role_recommendation_reason, merged_into_candidate_id, created_at
 		FROM entity_candidate WHERE book_id = #{bookId} ORDER BY entity_type, canonical_name
 	</select>
 

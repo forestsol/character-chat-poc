@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.characterchat.review.persistence.CharacterReviewMapper">
+	<select id="findCharactersByBookId" resultType="com.example.characterchat.review.domain.CharacterRecord">
+		SELECT id, book_id, candidate_id, knowledge_entity_id, name, narrative_role, chat_enabled, reviewed
+		FROM character WHERE book_id = #{bookId} ORDER BY id
+	</select>
+	<select id="findKnowledgeEntityIdByCandidateId" resultType="long">
+		SELECT id FROM knowledge_entity WHERE reference_type = 'ENTITY_CANDIDATE' AND reference_id = #{candidateId}
+	</select>
+	<update id="updateRecommendation">
+		UPDATE entity_candidate SET recommended_role = #{role}, role_recommendation_reason = #{reason} WHERE id = #{candidateId}
+	</update>
+	<update id="updateCandidateDecision">
+		UPDATE entity_candidate SET review_status = #{status}, merged_into_candidate_id = #{targetId} WHERE id = #{candidateId}
+	</update>
+	<update id="updateKnowledgeEntityStatus">
+		UPDATE knowledge_entity SET review_status = #{status}
+		WHERE reference_type = 'ENTITY_CANDIDATE' AND reference_id = #{candidateId}
+	</update>
+	<insert id="upsertCharacter">
+		INSERT INTO character (book_id, candidate_id, knowledge_entity_id, name, narrative_role, chat_enabled)
+		VALUES (#{bookId}, #{candidateId}, #{knowledgeEntityId}, #{name}, #{role}, #{chatEnabled})
+		ON CONFLICT (candidate_id) DO UPDATE SET name = EXCLUDED.name, narrative_role = EXCLUDED.narrative_role,
+			chat_enabled = EXCLUDED.chat_enabled, updated_at = CURRENT_TIMESTAMP
+	</insert>
+	<delete id="deleteAliasesByCandidateId">
+		DELETE FROM character_alias WHERE character_id = (SELECT id FROM character WHERE candidate_id = #{candidateId})
+	</delete>
+	<insert id="insertAliasesFromMentions">
+		INSERT INTO character_alias (character_id, alias, source_type)
+		SELECT c.id, em.mention_text, MIN(em.source_type)
+		FROM character c JOIN entity_mention em ON em.entity_candidate_id = c.candidate_id
+		WHERE c.candidate_id = #{candidateId} AND LOWER(em.mention_text) != LOWER(c.name)
+		GROUP BY c.id, em.mention_text ON CONFLICT DO NOTHING
+	</insert>
+	<delete id="deleteCharacterByCandidateId">DELETE FROM character WHERE candidate_id = #{candidateId}</delete>
+	<delete id="deleteKnowledgeEntityByCandidateId">
+		DELETE FROM knowledge_entity WHERE reference_type = 'ENTITY_CANDIDATE' AND reference_id = #{candidateId}
+	</delete>
+	<insert id="moveMentions">
+		INSERT INTO entity_mention (entity_candidate_id, paragraph_id, image_id, mention_text, source_type, confidence)
+		SELECT #{targetId}, paragraph_id, image_id, mention_text, source_type, confidence FROM entity_mention WHERE entity_candidate_id = #{sourceId}
+		ON CONFLICT DO NOTHING
+	</insert>
+	<delete id="deleteSourceMentions">DELETE FROM entity_mention WHERE entity_candidate_id = #{sourceId}</delete>
+	<update id="moveFacts">UPDATE extracted_fact SET subject_candidate_id = #{targetId} WHERE subject_candidate_id = #{sourceId}</update>
+	<update id="mergeKnowledgeGraph">
+		WITH ids AS (
+			SELECT
+				(SELECT id FROM knowledge_entity WHERE reference_type='ENTITY_CANDIDATE' AND reference_id=#{sourceId}) source_ke,
+				(SELECT id FROM knowledge_entity WHERE reference_type='ENTITY_CANDIDATE' AND reference_id=#{targetId}) target_ke
+		), deleted_self AS (
+			DELETE FROM knowledge_relation kr USING ids
+			WHERE (kr.source_entity_id=ids.source_ke AND kr.target_entity_id=ids.target_ke)
+			   OR (kr.source_entity_id=ids.target_ke AND kr.target_entity_id=ids.source_ke)
+		), deleted_participants AS (
+			DELETE FROM event_participant source USING ids
+			WHERE source.knowledge_entity_id=ids.source_ke AND EXISTS (
+				SELECT 1 FROM event_participant target WHERE target.event_id=source.event_id
+				AND target.knowledge_entity_id=ids.target_ke AND target.participant_role=source.participant_role)
+		), moved_participants AS (
+			UPDATE event_participant ep SET knowledge_entity_id=ids.target_ke FROM ids WHERE ep.knowledge_entity_id=ids.source_ke
+		), moved_sources AS (
+			UPDATE knowledge_relation kr SET source_entity_id=ids.target_ke FROM ids WHERE kr.source_entity_id=ids.source_ke
+		)
+		UPDATE knowledge_relation kr SET target_entity_id=ids.target_ke FROM ids WHERE kr.target_entity_id=ids.source_ke
+	</update>
+	<update id="refreshBookStatus">
+		UPDATE book SET status = CASE
+			WHEN (SELECT COUNT(*) FROM character WHERE book_id=#{bookId} AND chat_enabled=TRUE) = 1
+			THEN 'CHARACTERS_REVIEWED' ELSE 'KG_BUILT' END,
+			updated_at=CURRENT_TIMESTAMP WHERE id=#{bookId}
+	</update>
+</mapper>

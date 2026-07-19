@@ -220,7 +220,7 @@ BLOCKED
 
 ## Task 7. 등장인물 검수 및 대화 가능 인물 선택
 
-상태: TODO
+상태: DONE
 
 목표:
 
@@ -233,6 +233,17 @@ BLOCKED
 - 테스트
 
 프론트 화면은 이후 Next.js 작업에서 구현할 수 있으며, 초기에는 API로 검수할 수 있다.
+
+완료 기록:
+
+- AI narrativeRole 추천과 추천 이유 저장 구현
+- `character`, `character_alias` 테이블 및 후보 추천·병합 필드 구현
+- APPROVE, REJECT, MERGE 검수 상태 전환 API 구현
+- 승인 시 최종 역할, 별칭과 Character 생성 및 KG 상태 연결
+- 병합 시 mention, 관찰 사실, 사건 참여자와 KG 관계 이동
+- 책별 chatEnabled 한 명 제한을 서비스 및 PostgreSQL 부분 유일 인덱스로 적용
+- 활성 인물 선택에 따른 `CHARACTERS_REVIEWED`/`KG_BUILT` 상태 전환 구현
+- Fake 기반 추천·승인·병합 통합 테스트와 실제 OpenAI 역할 추천 검증 완료
 
 ---
 

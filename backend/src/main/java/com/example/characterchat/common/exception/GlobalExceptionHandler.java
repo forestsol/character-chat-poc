@@ -3,6 +3,8 @@ package com.example.characterchat.common.exception;
 import com.example.characterchat.analysis.entity.application.EntityExtractionException;
 import com.example.characterchat.analysis.image.application.ImageAnalysisException;
 import com.example.characterchat.analysis.kg.application.KnowledgeGraphException;
+import com.example.characterchat.review.application.CharacterReviewException;
+import com.example.characterchat.review.application.RoleRecommendationException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,6 +48,16 @@ public class GlobalExceptionHandler {
 
 	@ExceptionHandler(KnowledgeGraphException.class)
 	public ResponseEntity<ApiErrorResponse> handleKnowledgeGraph(KnowledgeGraphException exception, HttpServletRequest request) {
+		return response(HttpStatus.BAD_GATEWAY, exception.getMessage(), request);
+	}
+
+	@ExceptionHandler(CharacterReviewException.class)
+	public ResponseEntity<ApiErrorResponse> handleCharacterReview(CharacterReviewException exception, HttpServletRequest request) {
+		return response(HttpStatus.BAD_REQUEST, exception.getMessage(), request);
+	}
+
+	@ExceptionHandler(RoleRecommendationException.class)
+	public ResponseEntity<ApiErrorResponse> handleRoleRecommendation(RoleRecommendationException exception, HttpServletRequest request) {
 		return response(HttpStatus.BAD_GATEWAY, exception.getMessage(), request);
 	}
 

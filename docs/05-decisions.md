@@ -253,3 +253,15 @@ OpenAI 공식 Java SDK와 Responses API를 사용한다. 현재 SDK 버전은 4.
 - 원문 근거 `sourceOrder`와 이미지 근거 `pageNumber+imageOrder`는 서버에서 실제 원본 ID로 검증·변환한다.
 - 모든 분석과 검증이 성공한 뒤 사건과 KG만 한 트랜잭션으로 교체한다.
 - 긴 책의 부분별 사건 통합 전략은 현재 PoC에서 확정하지 않는다.
+
+## D-025. 등장인물 검수와 활성 캐릭터
+
+상태: 확정
+
+- AI의 narrativeRole 추천은 참고값이며 후보 상태를 자동 승인하거나 거절하지 않는다.
+- 사람 요청만 후보를 APPROVED, REJECTED, MERGED로 변경하고 최종 역할과 chatEnabled를 결정한다.
+- 승인된 후보만 Character로 생성하며 mention에서 CharacterAlias를 구성한다.
+- 병합 시 source 후보의 mention, 관찰 사실 및 KG 연결을 target 후보로 이동하고 source 후보는 MERGED 이력으로 남긴다.
+- 책마다 chatEnabled Character는 한 명만 허용하며 DB 부분 유일 인덱스와 서비스 검증을 함께 사용한다.
+- 활성 캐릭터가 정확히 한 명이면 책 상태는 `CHARACTERS_REVIEWED`, 없으면 `KG_BUILT`로 유지 또는 복귀한다.
+- 초기 검수는 REST API로 수행하고 화면은 후속 Next.js 작업에서 구현한다.

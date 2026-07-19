@@ -11,6 +11,9 @@ public class EntityCandidate {
 	private double confidence;
 	private String reviewStatus;
 	private String originSource;
+	private String recommendedRole;
+	private String roleRecommendationReason;
+	private Long mergedIntoCandidateId;
 	private OffsetDateTime createdAt;
 
 	public EntityCandidate() {}
@@ -48,6 +51,12 @@ public class EntityCandidate {
 	public void setReviewStatus(String reviewStatus) { this.reviewStatus = reviewStatus; }
 	public String getOriginSource() { return originSource; }
 	public void setOriginSource(String originSource) { this.originSource = originSource; }
+	public String getRecommendedRole() { return recommendedRole; }
+	public void setRecommendedRole(String value) { this.recommendedRole = value; }
+	public String getRoleRecommendationReason() { return roleRecommendationReason; }
+	public void setRoleRecommendationReason(String value) { this.roleRecommendationReason = value; }
+	public Long getMergedIntoCandidateId() { return mergedIntoCandidateId; }
+	public void setMergedIntoCandidateId(Long value) { this.mergedIntoCandidateId = value; }
 	public OffsetDateTime getCreatedAt() { return createdAt; }
 	public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
 }

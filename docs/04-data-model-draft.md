@@ -158,6 +158,8 @@ alias
 sourceType
 ```
 
+Task 7에서 `character`, `character_alias` 테이블을 구현했다. `Character`는 승인된 CHARACTER 후보와 그 `KnowledgeEntity`를 함께 참조한다. `entity_candidate`에는 AI 추천 역할·이유와 병합 대상 후보 ID를 추가했으며, 책별 `chatEnabled=true`는 부분 유일 인덱스로 한 명만 허용한다.
+
 ## 4. 추출 정보와 장면 관찰
 
 ### ExtractedFact
