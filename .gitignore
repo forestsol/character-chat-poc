@@ -9,3 +9,6 @@ backend/out/
 
 source-books/*
 !source-books/.gitkeep
+
+test-books/*
+!test-books/.gitkeep
