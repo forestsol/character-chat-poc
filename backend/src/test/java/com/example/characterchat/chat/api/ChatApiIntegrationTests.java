@@ -74,6 +74,8 @@ class ChatApiIntegrationTests {
 				.andExpect(jsonPath("$.debug.directRelations[0].targetName").value("흰 토끼"));
 		assertThat(fakeAiClient.getLastTextRequest().userPrompt())
 				.contains("캐릭터: 앨리스", "관련 원문", "흰 토끼", "relationId=" + setup.relation.id());
+		assertThat(fakeAiClient.getLastTextRequest().systemPrompt())
+				.contains("관련 행동, 대사, 사건이 있으면 supported=true", "분석 시스템 표현을 사용하지 마세요");
 		mockMvc.perform(get("/api/books/{bookId}", setup.bookId))
 				.andExpect(status().isOk()).andExpect(jsonPath("$.status").value("CHAT_READY"));
 	}
@@ -89,7 +91,7 @@ class ChatApiIntegrationTests {
 				.content(objectMapper.writeValueAsString(new ChatRequest("내가 달에 간 적이 있어?"))))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.grounded").value(false))
-				.andExpect(jsonPath("$.answer").value("그건 내가 아는 이야기 안에서는 확인할 수 없어."))
+				.andExpect(jsonPath("$.answer").value("글쎄, 그건 나도 잘 모르겠어."))
 				.andExpect(jsonPath("$.debug.usedParagraphIds").isEmpty())
 				.andExpect(jsonPath("$.debug.usedRelationIds").isEmpty());
 	}

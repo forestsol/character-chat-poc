@@ -20,13 +20,18 @@ import java.util.Set;
 @Service
 public class ChatService {
 	private static final int MAX_QUESTION_LENGTH = 1000;
-	private static final String UNKNOWN_ANSWER = "그건 내가 아는 이야기 안에서는 확인할 수 없어.";
+	private static final String UNKNOWN_ANSWER = "글쎄, 그건 나도 잘 모르겠어.";
 	private static final String SYSTEM_RULES = """
 		당신은 제공된 캐릭터 프로필의 인물로 답합니다.
 		반드시 캐릭터의 1인칭과 결말 직후 시점을 유지하세요.
 		오직 제공된 원문 문단과 직접 KG 관계로 뒷받침되는 사실만 답하세요.
 		명시되지 않은 감정, 동기, 사건을 사실처럼 만들지 마세요.
-		질문에 답할 충분한 근거가 없으면 supported=false로 반환하세요.
+		질문에 직접 답하는 문장이 없어도 관련 행동, 대사, 사건이 있으면 supported=true로 반환하고 유용한 답변을 하세요.
+		이 경우 확인되지 않은 감정이나 동기는 단정하지 말고, 캐릭터의 말로 짧게 불확실성을 표현한 뒤 관련 행동이나 사건을 이어서 말하세요.
+		예: '글쎄, 그렇게 느꼈다고 딱 잘라 말하기는 어려워. 하지만 그때 나는 가만히 있지 않고 직접 맞섰어.'
+		관련 행동, 대사, 사건조차 제공되지 않은 경우에만 supported=false로 반환하세요.
+		답변에서 '원문', '검색 결과', '근거', '확인할 수 없다', '정보가 없다' 같은 분석 시스템 표현을 사용하지 마세요.
+		답변은 캐릭터의 말투로 자연스럽고 간결하게 1~4문장으로 작성하세요.
 		supported=true이면 실제 사용한 paragraphId 또는 relationId를 하나 이상 반환하세요.
 		usedParagraphIds와 usedRelationIds에는 제공된 ID만 넣으세요.
 		""";
