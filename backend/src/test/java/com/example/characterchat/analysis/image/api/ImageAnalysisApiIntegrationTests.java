@@ -83,6 +83,29 @@ class ImageAnalysisApiIntegrationTests {
 				.andExpect(jsonPath("$.length()").value(0));
 	}
 
+	@Test
+	void 복합_fact_주체가_모두_후보이면_각_후보의_사실로_분리한다() throws Exception {
+		long bookId = importBook();
+		EntityExtractionAiResponse extraction = new EntityExtractionAiResponse();
+		extraction.entities = List.of(
+				textCandidate("CHARACTER", "앨리스", 2, "앨리스"),
+				textCandidate("CHARACTER", "토끼", 2, "토끼"));
+		fakeAiClient.enqueueStructuredResponse(EntityExtractionAiResponse.class, extraction);
+		mockMvc.perform(post("/api/books/{bookId}/entity-candidates/extract", bookId)).andExpect(status().isOk());
+
+		ImageAnalysisAiResponse firstPage = imageResponse(false, 1, "IMAGE", "함께 서 있다");
+		firstPage.facts.get(0).subjectName = "앨리스와 토끼";
+		fakeAiClient.enqueueImageStructuredResponse(ImageAnalysisAiResponse.class, firstPage);
+		for (int page = 2; page <= 10; page++) {
+			fakeAiClient.enqueueImageStructuredResponse(ImageAnalysisAiResponse.class,
+					imageResponse(false, 1, "IMAGE", "페이지 " + page + "의 장면"));
+		}
+
+		mockMvc.perform(post("/api/books/{bookId}/image-analysis/analyze", bookId))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.length()").value(11));
+	}
+
 	private long importBook() throws Exception {
 		String json = mockMvc.perform(post("/api/books/import")
 						.contentType(MediaType.APPLICATION_JSON)
@@ -105,6 +128,20 @@ class ImageAnalysisApiIntegrationTests {
 		EntityExtractionAiResponse response = new EntityExtractionAiResponse();
 		response.entities = List.of(entity);
 		fakeAiClient.enqueueStructuredResponse(EntityExtractionAiResponse.class, response);
+	}
+
+	private EntityExtractionAiResponse.ExtractedEntity textCandidate(String type, String name, int sourceOrder, String mentionText) {
+		EntityExtractionAiResponse.MentionEvidence evidence = new EntityExtractionAiResponse.MentionEvidence();
+		evidence.sourceOrder = sourceOrder;
+		evidence.mentionText = mentionText;
+		EntityExtractionAiResponse.ExtractedEntity entity = new EntityExtractionAiResponse.ExtractedEntity();
+		entity.entityType = type;
+		entity.canonicalName = name;
+		entity.aliases = List.of();
+		entity.description = "테스트 후보";
+		entity.confidence = 0.9;
+		entity.evidence = List.of(evidence);
+		return entity;
 	}
 
 	private ImageAnalysisAiResponse imageResponse(boolean includeAlice, int imageOrder, String sourceType, String value) {

@@ -175,18 +175,34 @@ public class ImageAnalysisService {
 			String status = allowed(fact.status, STATUSES, "status");
 			String value = requireText(fact.value, "fact value");
 			validateConfidence(fact.confidence);
-			String subjectKey = null;
-			if (fact.subjectName != null && !fact.subjectName.isBlank()) {
-				subjectKey = pageSubjects.get(normalize(fact.subjectName));
-				if (subjectKey == null) {
-					EntityCandidate candidate = candidates.find(fact.subjectName);
-					if (candidate != null) subjectKey = "existing:" + candidate.getId();
-				}
-				if (subjectKey == null) throw new ImageAnalysisException("연결할 수 없는 fact subjectName입니다: " + fact.subjectName);
+			List<String> subjectKeys = resolveSubjectKeys(fact.subjectName, pageSubjects, candidates);
+			for (String subjectKey : subjectKeys) {
+				factDrafts.add(new VisualFactDraft(subjectKey, factType, value, sourceType, status,
+						fact.confidence, image.id(), fact.description == null ? "" : fact.description.strip()));
 			}
-			factDrafts.add(new VisualFactDraft(subjectKey, factType, value, sourceType, status,
-					fact.confidence, image.id(), fact.description == null ? "" : fact.description.strip()));
 		}
+	}
+
+	private List<String> resolveSubjectKeys(String subjectName, Map<String, String> pageSubjects, CandidateIndex candidates) {
+		if (subjectName == null || subjectName.isBlank()) return java.util.Collections.singletonList(null);
+		String direct = resolveSubjectKey(subjectName, pageSubjects, candidates);
+		if (direct != null) return List.of(direct);
+
+		List<String> parts = java.util.Arrays.stream(subjectName.strip().split("\\s*(?:와|과|및|그리고|,|·|&|/)\\s*"))
+				.filter(part -> !part.isBlank()).toList();
+		if (parts.size() < 2) throw new ImageAnalysisException("연결할 수 없는 fact subjectName입니다: " + subjectName);
+		List<String> keys = parts.stream().map(part -> resolveSubjectKey(part, pageSubjects, candidates)).toList();
+		if (keys.stream().anyMatch(java.util.Objects::isNull)) {
+			throw new ImageAnalysisException("연결할 수 없는 복합 fact subjectName입니다: " + subjectName);
+		}
+		return keys.stream().distinct().toList();
+	}
+
+	private String resolveSubjectKey(String subjectName, Map<String, String> pageSubjects, CandidateIndex candidates) {
+		String subjectKey = pageSubjects.get(normalize(subjectName));
+		if (subjectKey != null) return subjectKey;
+		EntityCandidate candidate = candidates.find(subjectName);
+		return candidate == null ? null : "existing:" + candidate.getId();
 	}
 
 	private BookImage requireImage(Map<Integer, BookImage> images, int imageOrder) {
