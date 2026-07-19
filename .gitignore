@@ -6,3 +6,6 @@
 backend/.gradle/
 backend/build/
 backend/out/
+
+source-books/*
+!source-books/.gitkeep
