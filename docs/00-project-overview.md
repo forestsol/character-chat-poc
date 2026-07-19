@@ -56,11 +56,11 @@ AI 기반 등장인물 대화 웹 PoC
 - 데이터베이스: PostgreSQL과 pgvector
 - 외부 LLM 및 멀티모달 API: OpenAI Responses API와 공식 Java SDK
 - 초기 텍스트 및 이미지 분석 모델: `gpt-5.6-luna`이며 환경변수로 교체 가능
-- 임베딩 모델: 미정
+- 임베딩 모델: `text-embedding-3-small`(기본 1536차원, 환경변수로 교체 가능)
 - KG 저장 방식: PostgreSQL의 개체 및 관계 테이블
 - RAG 저장 방식: PostgreSQL에 원문과 메타데이터를 저장하고 pgvector로 임베딩 저장 및 벡터 유사도 검색
 
-현재 생성된 백엔드는 Spring Boot 3.5.16을 사용한다. 모델 ID는 설정으로 교체할 수 있으며 임베딩 모델은 후속 작업에서 결정한다.
+현재 생성된 백엔드는 Spring Boot 3.5.16을 사용한다. 생성 모델과 임베딩 모델 ID는 설정으로 교체할 수 있다.
 
 ## 5. 핵심 구조
 

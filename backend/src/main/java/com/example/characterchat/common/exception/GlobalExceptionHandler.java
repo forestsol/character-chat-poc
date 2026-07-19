@@ -7,6 +7,7 @@ import com.example.characterchat.review.application.CharacterReviewException;
 import com.example.characterchat.review.application.RoleRecommendationException;
 import com.example.characterchat.profile.application.CharacterProfileException;
 import com.example.characterchat.profile.application.ProfileNotFoundException;
+import com.example.characterchat.rag.application.RagException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -71,6 +72,11 @@ public class GlobalExceptionHandler {
 	@ExceptionHandler(ProfileNotFoundException.class)
 	public ResponseEntity<ApiErrorResponse> handleProfileNotFound(ProfileNotFoundException exception, HttpServletRequest request) {
 		return response(HttpStatus.NOT_FOUND, exception.getMessage(), request);
+	}
+
+	@ExceptionHandler(RagException.class)
+	public ResponseEntity<ApiErrorResponse> handleRag(RagException exception, HttpServletRequest request) {
+		return response(HttpStatus.BAD_REQUEST, exception.getMessage(), request);
 	}
 
 	@ExceptionHandler(Exception.class)

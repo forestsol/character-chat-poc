@@ -41,5 +41,13 @@ ai:
   openai:
     api-key: ${OPENAI_API_KEY:}
     model: ${OPENAI_MODEL:gpt-5.6-luna}
+    embedding-model: ${OPENAI_EMBEDDING_MODEL:text-embedding-3-small}
+    embedding-dimensions: ${OPENAI_EMBEDDING_DIMENSIONS:1536}
     timeout: ${OPENAI_TIMEOUT:60s}
     max-retries: ${OPENAI_MAX_RETRIES:2}
+  rag:
+    embedding-model: ${OPENAI_EMBEDDING_MODEL:text-embedding-3-small}
+    embedding-dimensions: ${OPENAI_EMBEDDING_DIMENSIONS:1536}
+    top-k: ${RAG_TOP_K:3}
+    context-window: ${RAG_CONTEXT_WINDOW:2}
+    embedding-batch-size: ${RAG_EMBEDDING_BATCH_SIZE:100}

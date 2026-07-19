@@ -276,7 +276,7 @@ BLOCKED
 
 ## Task 9. 기본 RAG 검색
 
-상태: TODO
+상태: DONE
 
 목표:
 
@@ -289,11 +289,15 @@ BLOCKED
 - 검색 전략 인터페이스 분리
 - 테스트 질문을 이용한 검색 결과 확인
 
-시작 전 결정:
+구현 결과:
 
-- 임베딩 모델
-- topK 초기값
-- contextWindow 초기값
+- `text-embedding-3-small` 기본 1536차원 사용
+- `topK=3`, `contextWindow=2`, 임베딩 배치 크기 100을 환경변수 설정으로 분리
+- `rag_document`에 문단별 임베딩, 모델 및 전략 버전 저장
+- pgvector 코사인 거리 정확 검색과 교체 가능한 검색 전략 인터페이스 구현
+- 검색 문단의 앞뒤 범위 확장, 겹치거나 이어진 범위 병합 및 pageNumber/sourceOrder 반환
+- 색인·검색 REST API와 Fake 기반 통합 테스트 구현
+- `alice-demo` 실제 OpenAI 임베딩 생성 및 한국어 질문 검색 검증 완료
 
 ---
 

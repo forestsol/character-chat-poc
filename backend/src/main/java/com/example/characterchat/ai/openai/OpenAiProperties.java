@@ -9,6 +9,8 @@ public class OpenAiProperties {
 
 	private String apiKey;
 	private String model = "gpt-5.6-luna";
+	private String embeddingModel = "text-embedding-3-small";
+	private int embeddingDimensions = 1536;
 	private Duration timeout = Duration.ofSeconds(60);
 	private int maxRetries = 2;
 
@@ -16,6 +18,10 @@ public class OpenAiProperties {
 	public void setApiKey(String apiKey) { this.apiKey = apiKey; }
 	public String getModel() { return model; }
 	public void setModel(String model) { this.model = model; }
+	public String getEmbeddingModel() { return embeddingModel; }
+	public void setEmbeddingModel(String embeddingModel) { this.embeddingModel = embeddingModel; }
+	public int getEmbeddingDimensions() { return embeddingDimensions; }
+	public void setEmbeddingDimensions(int embeddingDimensions) { this.embeddingDimensions = embeddingDimensions; }
 	public Duration getTimeout() { return timeout; }
 	public void setTimeout(Duration timeout) { this.timeout = timeout; }
 	public int getMaxRetries() { return maxRetries; }

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.characterchat.rag.persistence.RagMapper">
+	<delete id="deleteByBookId">DELETE FROM rag_document WHERE book_id = #{bookId}</delete>
+	<insert id="insert" useGeneratedKeys="true" keyProperty="id">
+		INSERT INTO rag_document (book_id, document_type, reference_id, content,
+			source_order_start, source_order_end, page_number_start, page_number_end,
+			embedding, embedding_model, strategy_version)
+		VALUES (#{bookId}, #{documentType}, #{referenceId}, #{content},
+			#{sourceOrderStart}, #{sourceOrderEnd}, #{pageNumberStart}, #{pageNumberEnd},
+			CAST(#{embedding} AS vector), #{embeddingModel}, #{strategyVersion})
+	</insert>
+	<select id="search" resultType="com.example.characterchat.rag.domain.RagSearchHit">
+		SELECT id AS document_id, source_order_start AS source_order,
+			1 - (embedding &lt;=&gt; CAST(#{embedding} AS vector)) AS score
+		FROM rag_document
+		WHERE book_id = #{bookId} AND active = TRUE
+		ORDER BY embedding &lt;=&gt; CAST(#{embedding} AS vector), id
+		LIMIT #{topK}
+	</select>
+	<select id="findParagraphsByBookId" resultType="com.example.characterchat.rag.domain.RagParagraph">
+		SELECT paragraph.id, paragraph.source_order, page.page_number, paragraph.content
+		FROM book_paragraph paragraph
+		JOIN book_page page ON page.id = paragraph.page_id
+		WHERE paragraph.book_id = #{bookId}
+		ORDER BY paragraph.source_order
+	</select>
+	<select id="countByBookId" resultType="int">
+		SELECT COUNT(*) FROM rag_document WHERE book_id = #{bookId} AND active = TRUE
+	</select>
+	<update id="updateBookStatus">
+		UPDATE book SET status = #{status}, updated_at = CURRENT_TIMESTAMP WHERE id = #{bookId}
+	</update>
+</mapper>
+

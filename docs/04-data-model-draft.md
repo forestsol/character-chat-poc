@@ -368,6 +368,7 @@ sourceOrderEnd
 pageNumberStart
 pageNumberEnd
 embedding
+embeddingModel
 strategyVersion
 active
 createdAt
@@ -385,7 +386,7 @@ CHARACTER_PROFILE
 
 초기 구현은 PARAGRAPH만 사용한다.
 
-embedding은 pgvector의 `vector` 타입으로 저장할 예정이다. 정확한 임베딩 차원과 벡터 인덱스 종류는 임베딩 모델과 검색 요구사항을 확정한 뒤 결정한다.
+Task 9의 초기 구현은 `text-embedding-3-small`의 기본 출력에 맞춰 embedding을 pgvector의 `vector(1536)` 타입으로 저장한다. 책 한 권 규모에서는 벡터 인덱스 없이 정확 검색을 사용하며, 데이터 규모나 검색 지연이 실제 문제가 되면 HNSW 등의 인덱스를 검토한다.
 
 캐릭터 프로필은 매번 직접 조회하므로 RAG에 반드시 저장할 필요는 없다.
 
