@@ -71,7 +71,7 @@ BLOCKED
 
 ## Task 2. 표준 책 입력과 원본 데이터 적재
 
-상태: TODO
+상태: DONE
 
 목표:
 
@@ -85,6 +85,15 @@ BLOCKED
 - 입력 검증
 - 조회 API
 - 테스트
+
+완료 기록:
+
+- `book`, `book_page`, `book_paragraph`, `book_image` 테이블과 MyBatis 매핑 구현
+- 로컬 입력 루트 내부 경로 검증, JSON 및 파일 검증, UTF-8 본문 읽기 구현
+- 빈 줄 기준 문단 분리와 paragraphIndex, sourceOrder, imageOrder 생성 구현
+- 가져오기, 목록, 상세 조회 API와 400, 404, 409 오류 응답 구현
+- `alice-demo` 실제 적재 결과: 페이지 10개, 문단 38개, 이미지 10개
+- 전체 Gradle 테스트 9개 통과
 
 ---
 

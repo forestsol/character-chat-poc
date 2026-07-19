@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.characterchat.book.persistence.BookMapper">
+
+	<select id="existsByBookKey" resultType="boolean">
+		SELECT EXISTS(SELECT 1 FROM book WHERE book_key = #{bookKey})
+	</select>
+
+	<insert id="insertBook" useGeneratedKeys="true" keyProperty="id">
+		INSERT INTO book (book_key, title, author, status)
+		VALUES (#{bookKey}, #{title}, #{author}, #{status})
+	</insert>
+
+	<insert id="insertPage" useGeneratedKeys="true" keyProperty="id">
+		INSERT INTO book_page (book_id, page_number)
+		VALUES (#{bookId}, #{pageNumber})
+	</insert>
+
+	<insert id="insertParagraph">
+		INSERT INTO book_paragraph (book_id, page_id, paragraph_index, source_order, content)
+		VALUES (#{bookId}, #{pageId}, #{paragraphIndex}, #{sourceOrder}, #{content})
+	</insert>
+
+	<insert id="insertImage">
+		INSERT INTO book_image (book_id, page_id, image_order, file_path)
+		VALUES (#{bookId}, #{pageId}, #{imageOrder}, #{filePath})
+	</insert>
+
+	<select id="findAllBooks" resultType="com.example.characterchat.book.domain.Book">
+		SELECT id, book_key, title, author, status, created_at, updated_at
+		FROM book
+		ORDER BY id
+	</select>
+
+	<select id="findBookById" resultType="com.example.characterchat.book.domain.Book">
+		SELECT id, book_key, title, author, status, created_at, updated_at
+		FROM book
+		WHERE id = #{id}
+	</select>
+
+	<select id="findPagesByBookId" resultType="com.example.characterchat.book.domain.BookPage">
+		SELECT id, book_id, page_number
+		FROM book_page
+		WHERE book_id = #{bookId}
+		ORDER BY page_number
+	</select>
+
+	<select id="findParagraphsByBookId" resultType="com.example.characterchat.book.domain.BookParagraph">
+		SELECT id, book_id, page_id, paragraph_index, source_order, content
+		FROM book_paragraph
+		WHERE book_id = #{bookId}
+		ORDER BY source_order
+	</select>
+
+	<select id="findImagesByBookId" resultType="com.example.characterchat.book.domain.BookImage">
+		SELECT id, book_id, page_id, image_order, file_path
+		FROM book_image
+		WHERE book_id = #{bookId}
+		ORDER BY page_id, image_order
+	</select>
+
+	<delete id="deleteBookByBookKey">
+		DELETE FROM book WHERE book_key = #{bookKey}
+	</delete>
+</mapper>

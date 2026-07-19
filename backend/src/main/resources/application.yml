@@ -12,6 +12,7 @@ server:
   port: ${APP_PORT:8081}
 
 mybatis:
+  mapper-locations: classpath:/mapper/**/*.xml
   configuration:
     map-underscore-to-camel-case: true
 
@@ -29,3 +30,6 @@ springdoc:
     path: /v3/api-docs
   swagger-ui:
     path: /swagger-ui.html
+
+book-input:
+  root-directory: ${BOOK_INPUT_ROOT:../test-books}
