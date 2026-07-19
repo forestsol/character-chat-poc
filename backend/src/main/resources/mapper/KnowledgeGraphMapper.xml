@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.characterchat.analysis.kg.persistence.KnowledgeGraphMapper">
+	<delete id="deleteRelationsByBookId">DELETE FROM knowledge_relation WHERE book_id = #{bookId}</delete>
+	<delete id="deleteKnowledgeEntitiesByBookId">DELETE FROM knowledge_entity WHERE book_id = #{bookId}</delete>
+	<delete id="deleteEventsByBookId">DELETE FROM story_event WHERE book_id = #{bookId}</delete>
+
+	<insert id="insertEvent" useGeneratedKeys="true" keyProperty="id">
+		INSERT INTO story_event (book_id, name, description, sequence_order, confidence, review_status,
+			evidence_paragraph_id, evidence_image_id)
+		VALUES (#{bookId}, #{name}, #{description}, #{sequenceOrder}, #{confidence}, #{reviewStatus},
+			#{evidenceParagraphId}, #{evidenceImageId})
+	</insert>
+	<insert id="insertKnowledgeEntity" useGeneratedKeys="true" keyProperty="id">
+		INSERT INTO knowledge_entity (book_id, entity_type, reference_type, reference_id, name, description, review_status)
+		VALUES (#{bookId}, #{entityType}, #{referenceType}, #{referenceId}, #{name}, #{description}, #{reviewStatus})
+	</insert>
+	<insert id="insertParticipant">
+		INSERT INTO event_participant (event_id, knowledge_entity_id, participant_role, evidence_paragraph_id, evidence_image_id)
+		VALUES (#{eventId}, #{knowledgeEntityId}, #{participantRole}, #{evidenceParagraphId}, #{evidenceImageId})
+	</insert>
+	<insert id="insertRelation">
+		INSERT INTO knowledge_relation (book_id, source_entity_id, relation_type, target_entity_id, description,
+			confidence, review_status, evidence_paragraph_id, evidence_image_id)
+		VALUES (#{bookId}, #{sourceEntityId}, #{relationType}, #{targetEntityId}, #{description},
+			#{confidence}, #{reviewStatus}, #{evidenceParagraphId}, #{evidenceImageId})
+	</insert>
+
+	<select id="findEventsByBookId" resultType="com.example.characterchat.analysis.kg.domain.StoryEvent">
+		SELECT id, book_id, name, description, sequence_order, confidence, review_status,
+			evidence_paragraph_id, evidence_image_id FROM story_event WHERE book_id = #{bookId} ORDER BY sequence_order, id
+	</select>
+	<select id="findEntitiesByBookId" resultType="com.example.characterchat.analysis.kg.domain.KnowledgeEntity">
+		SELECT id, book_id, entity_type, reference_type, reference_id, name, description, review_status
+		FROM knowledge_entity WHERE book_id = #{bookId} ORDER BY entity_type, name
+	</select>
+	<select id="findParticipantsByBookId" resultType="com.example.characterchat.analysis.kg.domain.EventParticipant">
+		SELECT ep.id, ep.event_id, ep.knowledge_entity_id, ep.participant_role,
+			ep.evidence_paragraph_id, ep.evidence_image_id
+		FROM event_participant ep JOIN story_event se ON se.id = ep.event_id
+		WHERE se.book_id = #{bookId} ORDER BY ep.event_id, ep.id
+	</select>
+	<select id="findRelationsByBookId" resultType="com.example.characterchat.analysis.kg.domain.KnowledgeRelation">
+		SELECT id, book_id, source_entity_id, relation_type, target_entity_id, description, confidence,
+			review_status, evidence_paragraph_id, evidence_image_id
+		FROM knowledge_relation WHERE book_id = #{bookId} ORDER BY id
+	</select>
+	<update id="updateBookStatus">
+		UPDATE book SET status = 'KG_BUILT', updated_at = CURRENT_TIMESTAMP WHERE id = #{bookId}
+	</update>
+</mapper>

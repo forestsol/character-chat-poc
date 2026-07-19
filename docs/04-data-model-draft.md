@@ -234,6 +234,8 @@ evidenceParagraphId nullable
 evidenceImageId nullable
 ```
 
+Task 6 구현에서는 `StoryEvent` 자체에도 대표 근거 문단 또는 이미지 ID를 저장하고, `EventParticipant`는 참여 후보가 투영된 `KnowledgeEntity`를 참조한다.
+
 ## 6. KG
 
 KG는 별도 그래프 DB 없이 PostgreSQL의 KnowledgeEntity 및 KnowledgeRelation 테이블로 구현한다. 원본 문단, 이미지, 사건, 캐릭터 프로필과 같은 ID 체계로 근거를 연결한다.
@@ -280,6 +282,8 @@ createdAt
 ```
 
 이번 PoC에서는 결말 시점의 주요 관계를 저장한다.
+
+Task 6에서 `story_event`, `event_participant`, `knowledge_entity`, `knowledge_relation` 테이블을 구현했다. `KnowledgeEntity.referenceType`은 `ENTITY_CANDIDATE` 또는 `STORY_EVENT`이며 두 도메인의 원본 ID를 같은 KG ID 체계로 투영한다. 모든 초기 reviewStatus는 PENDING이다.
 
 향후 확장 후보:
 

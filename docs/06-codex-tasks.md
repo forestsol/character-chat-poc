@@ -189,7 +189,7 @@ BLOCKED
 
 ## Task 6. 사건 및 관계 추출과 KG 구축
 
-상태: TODO
+상태: DONE
 
 목표:
 
@@ -205,6 +205,16 @@ BLOCKED
 
 - 복잡한 다단계 그래프 탐색
 - 시점별 관계 변화
+
+완료 기록:
+
+- `story_event`, `event_participant`, `knowledge_entity`, `knowledge_relation` 테이블과 MyBatis 매핑 구현
+- 전체 원문, 개체 후보와 이미지 관찰 사실 기반 구조화 사건·직접 관계 추출 구현
+- 사건 순서, 참여자, 관계 유형, 신뢰도와 원문·이미지 근거 검증 구현
+- 검수 전 후보와 사건을 PENDING KnowledgeEntity로 투영하고 PostgreSQL KG ID로 연결
+- 모든 추출 성공 후 사건과 KG를 교체하고 책 상태를 `KG_BUILT`로 전환
+- KG 구축 및 책별 사건·개체·관계 조회 API 구현
+- Fake 기반 통합 테스트와 `alice-demo` 실제 OpenAI 사건·관계 추출 검증 완료
 
 ---
 

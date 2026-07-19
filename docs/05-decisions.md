@@ -241,3 +241,15 @@ OpenAI 공식 Java SDK와 Responses API를 사용한다. 현재 SDK 버전은 4.
 - 재실행은 이미지 기반 mention, 후보와 관찰 사실만 교체하며 텍스트 후보와 근거는 유지한다.
 - 모든 페이지의 호출과 검증이 성공한 뒤 DB 교체 트랜잭션을 실행한다.
 - 관계와 사건은 이미지 분석 단계에서 만들지 않는다.
+
+## D-024. 검수 전 KG 구축과 근거
+
+상태: 확정
+
+- Task 6은 짧은 PoC 도서의 전체 원문, 개체 후보와 이미지 관찰 사실을 한 번의 구조화 요청으로 분석한다.
+- 검수 전 `EntityCandidate`는 승인하지 않고 PENDING 상태의 `KnowledgeEntity`로 투영한다.
+- 사건은 `StoryEvent`와 EVENT 유형 `KnowledgeEntity`로 함께 표현하고 참여자는 `EventParticipant`로 연결한다.
+- 개체 사이의 1단계 직접 관계만 `KnowledgeRelation`으로 저장한다.
+- 원문 근거 `sourceOrder`와 이미지 근거 `pageNumber+imageOrder`는 서버에서 실제 원본 ID로 검증·변환한다.
+- 모든 분석과 검증이 성공한 뒤 사건과 KG만 한 트랜잭션으로 교체한다.
+- 긴 책의 부분별 사건 통합 전략은 현재 PoC에서 확정하지 않는다.
