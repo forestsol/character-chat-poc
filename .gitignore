@@ -13,6 +13,9 @@ frontend/out/
 frontend/.env.local
 frontend/tsconfig.tsbuildinfo
 
+qa/.venv/
+qa/__pycache__/
+
 source-books/*
 !source-books/.gitkeep
 

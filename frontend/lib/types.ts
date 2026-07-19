@@ -3,20 +3,6 @@ export type BookSummary = {
   createdAt: string; updatedAt: string;
 };
 
-export type BookDetail = BookSummary & {
-  pages: Array<{
-    id: number; pageNumber: number;
-    paragraphs: Array<{ id: number; paragraphIndex: number; sourceOrder: number; content: string }>;
-    images: Array<{ id: number; imageOrder: number; filePath: string }>;
-  }>;
-};
-
-export type EntityCandidate = {
-  id: number; entityType: string; canonicalName: string; description: string; confidence: number;
-  reviewStatus: string; aliases: string[];
-  mentions: Array<{ id: number; paragraphId: number | null; imageId: number | null; mentionText: string; sourceType: string; confidence: number }>;
-};
-
 export type CharacterReview = {
   candidateId: number; name: string; description: string; confidence: number; originSource: string;
   reviewStatus: string; recommendedRole: string | null; recommendationReason: string | null;
