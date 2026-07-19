@@ -99,7 +99,7 @@ BLOCKED
 
 ## Task 3. 외부 LLM 및 멀티모달 API 공통 연동
 
-상태: TODO
+상태: DONE
 
 목표:
 
@@ -112,10 +112,19 @@ BLOCKED
 
 시작 전 결정:
 
-- 사용할 AI 제공자
-- 사용할 모델
-- JSON 스키마 응답 지원 방식
-- 이미지 전달 방식
+- AI 제공자: OpenAI
+- 초기 모델: `gpt-5.6-luna`이며 `OPENAI_MODEL` 환경변수로 교체 가능
+- JSON 스키마 응답: OpenAI 공식 Java SDK의 Responses API 구조화 출력 사용
+- 이미지 전달: 로컬 파일을 data URL로 변환해 Responses API 입력으로 전달
+
+완료 기록:
+
+- 제공자 독립 `AiClient`에 텍스트, 구조화 응답, 멀티모달 메서드 정의
+- OpenAI 공식 Java SDK 4.43.0과 Responses API 기반 구현 추가
+- `OPENAI_API_KEY` 환경변수 기반 키 관리와 모델, 타임아웃, 재시도 설정 추가
+- 기본 실행은 비용 없는 Fake 구현을 사용하고, OpenAI 구현은 `AI_PROVIDER=openai`일 때만 활성화
+- Fake 계약 테스트와 환경변수로 명시적으로 활성화하는 실제 API 테스트 분리
+- `gpt-5.6-luna` 실제 호출로 텍스트, 구조화 출력, 로컬 이미지 분석 검증 완료
 
 ---
 
