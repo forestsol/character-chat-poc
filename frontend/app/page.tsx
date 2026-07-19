@@ -4,8 +4,9 @@ import * as Tabs from "@radix-ui/react-tabs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BookOpen, Bot, CheckCircle2, ChevronDown, CircleAlert, Database, LoaderCircle,
-  MessageCircle, Network, RefreshCw, Search, Send, Sparkles, UserRound
+  FlaskConical, MessageCircle, Network, RefreshCw, Search, Send, Sparkles, UserRound
 } from "lucide-react";
+import Link from "next/link";
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import type { CharacterProfile, DirectRelation, RagRange } from "@/lib/types";
@@ -59,6 +60,7 @@ export default function Home() {
             <div><p className="eyebrow">CHARACTER ARCHIVE</p><h1 className="font-serif text-2xl font-semibold text-ink md:text-3xl">책 속 인물과 대화하기</h1></div>
           </div>
           <div className="flex flex-wrap items-center gap-3">
+            <Link href="/qa" className="flex h-11 items-center gap-2 rounded-xl bg-ink px-4 text-sm font-semibold text-white"><FlaskConical size={16} /> QA 워크벤치</Link>
             {books.isFetching && <LoaderCircle className="animate-spin text-moss" size={18} />}
             <div className="relative">
               <select className="select-field" value={bookId ?? ""} onChange={(e) => { setBookId(Number(e.target.value)); chat.reset(); }} disabled={!books.data?.length}>

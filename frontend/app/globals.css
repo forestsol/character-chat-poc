@@ -43,6 +43,13 @@ button:active:not(:disabled) { transform: translateY(1px); }
   .subheading { @apply text-xs font-bold uppercase tracking-[.16em] text-slate-400; }
   .event-card { @apply flex gap-4 rounded-2xl bg-[#f8f6ef] p-4; }
   .event-card > span { @apply grid h-8 w-8 shrink-0 place-items-center rounded-full bg-ink text-xs font-bold text-white; }
+  .qa-primary-button { @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-copper px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#9d5833] disabled:cursor-not-allowed disabled:opacity-35; }
+  .qa-secondary-button { @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/10; }
+  .qa-input { @apply h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-ink outline-none focus:border-moss; }
+  .qa-small-input { @apply h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-ink outline-none focus:border-moss; }
+  .qa-approve-button { @apply inline-flex h-10 items-center gap-1.5 rounded-xl bg-emerald-600 px-3 text-xs font-bold text-white disabled:opacity-35; }
+  .qa-reject-button { @apply inline-flex h-10 items-center gap-1.5 rounded-xl bg-rose-50 px-3 text-xs font-bold text-rose-700 disabled:opacity-35; }
+  .step-number { @apply grid h-9 w-9 shrink-0 place-items-center rounded-full text-xs font-bold; }
 }
 
 @media (max-width: 640px) {
