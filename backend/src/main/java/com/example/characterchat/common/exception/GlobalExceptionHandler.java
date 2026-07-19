@@ -1,5 +1,6 @@
 package com.example.characterchat.common.exception;
 
+import com.example.characterchat.analysis.entity.application.EntityExtractionException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,6 +30,11 @@ public class GlobalExceptionHandler {
 	@ExceptionHandler(DuplicateBookException.class)
 	public ResponseEntity<ApiErrorResponse> handleConflict(DuplicateBookException exception, HttpServletRequest request) {
 		return response(HttpStatus.CONFLICT, exception.getMessage(), request);
+	}
+
+	@ExceptionHandler(EntityExtractionException.class)
+	public ResponseEntity<ApiErrorResponse> handleAiAnalysis(EntityExtractionException exception, HttpServletRequest request) {
+		return response(HttpStatus.BAD_GATEWAY, exception.getMessage(), request);
 	}
 
 	@ExceptionHandler(Exception.class)

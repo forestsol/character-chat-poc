@@ -36,6 +36,8 @@ book-input:
 
 ai:
   provider: ${AI_PROVIDER:fake}
+  entity-extraction:
+    batch-size: ${AI_ENTITY_BATCH_SIZE:20}
   openai:
     api-key: ${OPENAI_API_KEY:}
     model: ${OPENAI_MODEL:gpt-5.6-luna}

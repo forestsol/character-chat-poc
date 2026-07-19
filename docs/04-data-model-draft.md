@@ -120,6 +120,8 @@ TEXT_AND_IMAGE
 INFERRED
 ```
 
+Task 4 구현에서는 `entity_candidate`와 `entity_mention` 테이블을 생성했다. 텍스트에서 실제로 발견한 정규 이름과 별칭은 `EntityMention.mentionText`에 원본 문단 근거와 함께 저장한다. 이미지 기반 mention은 Task 5에서 확장한다.
+
 ### Character
 
 검수 후 확정된 등장인물이다.
