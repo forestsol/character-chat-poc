@@ -302,3 +302,15 @@ OpenAI 공식 Java SDK와 Responses API를 사용한다. 현재 SDK 버전은 4.
 - 근거 부족 응답은 AI가 만든 문구를 사용하지 않고 서버의 고정된 모름 응답으로 교체한다.
 - 발표용 응답에는 사용 근거 ID, 검색된 원문 범위와 직접 KG 관계를 디버그 정보로 포함한다.
 - 첫 정상 응답 후 책 상태를 `CHAT_READY`로 변경한다.
+
+## D-029. 발표용 프론트엔드 구성
+
+상태: 확정
+
+- `frontend`에 Next.js 15.5.20, React 19.1.8, TypeScript 기반 App Router 프로젝트를 둔다.
+- 서버 상태와 대화 mutation은 TanStack Query로 관리하고 별도 전역 상태 라이브러리는 사용하지 않는다.
+- Tailwind CSS로 레이아웃을 구성하고 Radix UI Tabs와 lucide-react 아이콘을 사용한다.
+- 한 화면에서 책 상태, 등장인물 검수, 활성 캐릭터, 최종 프로필, 질문·답변, RAG 원문과 KG 관계를 확인한다.
+- 브라우저는 Next.js의 `/backend` rewrite를 통해 Spring Boot API에 접근해 로컬 개발 CORS 설정을 추가하지 않는다.
+- 초기 화면은 이미 백엔드에 입력·분석된 도서를 조회하는 발표용 화면이며 분석 파이프라인 실행 UI는 포함하지 않는다.
+- 로그인, 복잡한 라우팅, 대화 이력과 Zustand는 초기 범위에서 제외한다.

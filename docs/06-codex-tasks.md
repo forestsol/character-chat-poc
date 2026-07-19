@@ -331,7 +331,7 @@ BLOCKED
 
 ## Task 11. Next.js 발표용 화면
 
-상태: TODO
+상태: DONE
 
 목표:
 
@@ -353,6 +353,18 @@ BLOCKED
 - 복잡한 라우팅
 - 운영 서비스 수준의 디자인
 - 복잡한 상태 관리 라이브러리
+
+구현 결과:
+
+- `frontend` Next.js 15.5.20 + React 19.1.8 + TypeScript App Router 프로젝트 생성
+- TanStack Query, Tailwind CSS, Radix UI Tabs, lucide-react 구성
+- 책 선택과 처리 상태, 등장인물 검수 결과 및 대화 캐릭터 표시
+- 캐릭터 질문·답변과 근거 충분 여부 표시
+- 사용된 RAG 원문과 직접 KG 관계를 발표용 디버그 패널로 표시
+- 최종 캐릭터 프로필, 전체 KG 관계와 사건 타임라인 표시
+- 독립적인 로딩·오류·빈 상태와 반응형 단일 화면 구현
+- Next.js rewrite로 로컬 Spring Boot API 연결
+- TypeScript 검사, 프로덕션 빌드 및 npm 보안 감사 통과
 
 ---
 

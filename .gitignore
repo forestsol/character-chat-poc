@@ -7,6 +7,12 @@ backend/.gradle/
 backend/build/
 backend/out/
 
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.env.local
+frontend/tsconfig.tsbuildinfo
+
 source-books/*
 !source-books/.gitkeep
 
