@@ -12,3 +12,6 @@ source-books/*
 
 test-books/*
 !test-books/.gitkeep
+
+# 개인 학습용 프로젝트 해설 문서
+docs/project-learning-guide.md
