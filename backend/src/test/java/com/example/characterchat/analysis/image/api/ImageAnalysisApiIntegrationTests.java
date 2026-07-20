@@ -106,6 +106,25 @@ class ImageAnalysisApiIntegrationTests {
 				.andExpect(jsonPath("$.length()").value(11));
 	}
 
+	@Test
+	void 이름을_특정하지_못한_빈_시각_개체만_제외하고_분석을_계속한다() throws Exception {
+		long bookId = importBook();
+		ImageAnalysisAiResponse firstPage = imageResponse(false, 1, "IMAGE", "이름을 알 수 없는 인물이 보인다");
+		ImageAnalysisAiResponse.VisualEntity unnamed = new ImageAnalysisAiResponse.VisualEntity();
+		unnamed.imageOrder = 1; unnamed.entityType = "CHARACTER"; unnamed.observedName = "";
+		unnamed.matchedCandidateName = ""; unnamed.description = "이름을 특정할 수 없는 인물"; unnamed.confidence = 0.5;
+		firstPage.entities = List.of(unnamed);
+		fakeAiClient.enqueueImageStructuredResponse(ImageAnalysisAiResponse.class, firstPage);
+		for (int page = 2; page <= 10; page++) {
+			fakeAiClient.enqueueImageStructuredResponse(ImageAnalysisAiResponse.class,
+					imageResponse(false, 1, "IMAGE", "페이지 " + page + "의 장면"));
+		}
+
+		mockMvc.perform(post("/api/books/{bookId}/image-analysis/analyze", bookId))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.length()").value(10));
+	}
+
 	private long importBook() throws Exception {
 		String json = mockMvc.perform(post("/api/books/import")
 						.contentType(MediaType.APPLICATION_JSON)

@@ -46,7 +46,8 @@ public class ImageAnalysisService {
 			status는 CONFIRMED, CANDIDATE, UNKNOWN, CONFLICT 중 하나만 사용하세요. OBSERVED 같은 다른 값은 사용하지 마세요.
 			관계, 사건, 보이지 않는 감정·동기·성격은 추론하지 마세요.
 			기존 후보와 확실히 같은 경우에만 matchedCandidateName에 제공된 정규 이름을 정확히 넣으세요.
-			확실하지 않으면 matchedCandidateName과 fact의 subjectName을 빈 문자열로 두고 CANDIDATE 또는 UNKNOWN을 사용하세요.
+			이름을 특정할 수 없는 시각 개체는 entities에 넣지 마세요.
+			사실의 주체를 특정할 수 없으면 fact의 subjectName을 빈 문자열로 두고 CANDIDATE 또는 UNKNOWN을 사용하세요.
 			입력 이미지 순서와 imageOrder가 일치해야 합니다.
 			""";
 
@@ -146,15 +147,18 @@ public class ImageAnalysisService {
 
 		for (ImageAnalysisAiResponse.VisualEntity entity : response.entities) {
 			BookImage image = requireImage(byOrder, entity.imageOrder);
+			String observedName = entity.observedName == null ? "" : entity.observedName.strip();
+			String matchedName = entity.matchedCandidateName == null ? "" : entity.matchedCandidateName.strip();
+			if (observedName.isBlank() && matchedName.isBlank()) continue;
 			EntityType type = parseType(entity.entityType);
-			String observedName = requireText(entity.observedName, "observedName");
 			String description = requireText(entity.description, "entity description");
 			validateConfidence(entity.confidence);
 			EntityCandidate matched = null;
-			if (entity.matchedCandidateName != null && !entity.matchedCandidateName.isBlank()) {
-				matched = candidates.find(entity.matchedCandidateName);
-				if (matched == null) throw new ImageAnalysisException("존재하지 않는 matchedCandidateName입니다: " + entity.matchedCandidateName);
-				if (matched.getEntityType() != type) throw new ImageAnalysisException("기존 후보와 entityType이 다릅니다: " + entity.matchedCandidateName);
+			if (!matchedName.isBlank()) {
+				matched = candidates.find(matchedName);
+				if (matched == null) throw new ImageAnalysisException("존재하지 않는 matchedCandidateName입니다: " + matchedName);
+				if (matched.getEntityType() != type) throw new ImageAnalysisException("기존 후보와 entityType이 다릅니다: " + matchedName);
+				if (observedName.isBlank()) observedName = matched.getCanonicalName();
 			} else {
 				EntityCandidate byObservedName = candidates.find(observedName);
 				if (byObservedName != null && byObservedName.getEntityType() == type) matched = byObservedName;
