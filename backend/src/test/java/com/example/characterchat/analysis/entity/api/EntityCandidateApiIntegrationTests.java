@@ -69,14 +69,31 @@ class EntityCandidateApiIntegrationTests {
 		long bookId = importBook();
 		fakeAiClient.enqueueStructuredResponse(EntityExtractionAiResponse.class,
 				response("CHARACTER", "Alice", List.of(), "주인공", 0.9, 999, "Alice"));
+		EntityExtractionAiResponse emptyResponse = new EntityExtractionAiResponse();
+		emptyResponse.entities = List.of();
+		fakeAiClient.enqueueStructuredResponse(EntityExtractionAiResponse.class, emptyResponse);
 
 		mockMvc.perform(post("/api/books/{bookId}/entity-candidates/extract", bookId))
 				.andExpect(status().isBadGateway())
-				.andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("sourceOrder")));
+				.andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("검증 가능한 개체 후보")));
 
 		mockMvc.perform(get("/api/books/{bookId}/entity-candidates", bookId))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.length()").value(0));
+	}
+
+	@Test
+	void 일부_후보의_근거가_현재_배치에_없어도_유효한_후보는_저장한다() throws Exception {
+		long bookId = importBook();
+		fakeAiClient.enqueueStructuredResponse(EntityExtractionAiResponse.class,
+				response("CHARACTER", "Alice", List.of("앨리스"), "주인공", 0.9, 1, "ALICE"));
+		fakeAiClient.enqueueStructuredResponse(EntityExtractionAiResponse.class,
+				response("PLACE", "강둑", List.of(), "이전 배치의 장소", 0.8, 21, "강둑"));
+
+		mockMvc.perform(post("/api/books/{bookId}/entity-candidates/extract", bookId))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.length()").value(1))
+				.andExpect(jsonPath("$[0].canonicalName").value("Alice"));
 	}
 
 	@Test

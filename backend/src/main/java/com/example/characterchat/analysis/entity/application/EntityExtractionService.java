@@ -75,7 +75,9 @@ public class EntityExtractionService {
 			throw new EntityExtractionException("AI 개체 후보 추출 호출에 실패했습니다.", exception);
 		}
 
-		writer.replace(bookId, accumulator.toDrafts());
+		List<EntityCandidateDraft> drafts = accumulator.toDrafts();
+		if (drafts.isEmpty()) throw new EntityExtractionException("검증 가능한 개체 후보가 없습니다.");
+		writer.replace(bookId, drafts);
 		return getCandidates(bookId);
 	}
 
@@ -123,6 +125,7 @@ public class EntityExtractionService {
 				List<String> aliases = extracted.aliases == null ? List.of() : extracted.aliases.stream()
 						.filter(alias -> alias != null && !alias.isBlank()).map(String::strip).distinct().toList();
 				List<MentionDraft> mentions = validateEvidence(extracted, paragraphs);
+				if (mentions.isEmpty()) continue;
 
 				Set<String> identities = new HashSet<>();
 				identities.add(normalize(name));
@@ -152,21 +155,20 @@ public class EntityExtractionService {
 
 		private static List<MentionDraft> validateEvidence(EntityExtractionAiResponse.ExtractedEntity entity,
 				Map<Integer, BookParagraph> paragraphs) {
-			if (entity.evidence == null || entity.evidence.isEmpty()) {
-				throw new EntityExtractionException(entity.canonicalName + " 후보에 근거가 없습니다.");
-			}
+			if (entity.evidence == null || entity.evidence.isEmpty()) return List.of();
 			List<MentionDraft> result = new ArrayList<>();
 			for (EntityExtractionAiResponse.MentionEvidence evidence : entity.evidence) {
+				if (evidence == null || evidence.mentionText == null || evidence.mentionText.isBlank()) continue;
 				BookParagraph paragraph = paragraphs.get(evidence.sourceOrder);
-				if (paragraph == null) throw new EntityExtractionException("현재 배치에 없는 sourceOrder입니다: " + evidence.sourceOrder);
-				String mention = requireText(evidence.mentionText, "mentionText");
+				if (paragraph == null) continue;
+				String mention = evidence.mentionText.strip();
 				if (!paragraph.content().contains(mention)) {
 					paragraph = paragraphs.values().stream()
 							.filter(candidate -> candidate.content().contains(mention))
 							.min(java.util.Comparator.comparingInt(candidate -> Math.abs(candidate.sourceOrder() - evidence.sourceOrder)))
-							.orElseThrow(() -> new EntityExtractionException("현재 배치 원문에 mentionText가 없습니다: " + mention));
+							.orElse(null);
 				}
-				result.add(new MentionDraft(paragraph.id(), mention, entity.confidence));
+				if (paragraph != null) result.add(new MentionDraft(paragraph.id(), mention, entity.confidence));
 			}
 			return result;
 		}
