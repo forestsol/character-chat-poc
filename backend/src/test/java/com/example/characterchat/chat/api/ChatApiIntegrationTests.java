@@ -57,6 +57,8 @@ class ChatApiIntegrationTests {
 	@Test
 	void 프로필_RAG_KG를_조합해_근거가_있는_캐릭터_답변을_생성한다() throws Exception {
 		Setup setup = setup();
+		fakeAiClient.enqueueStructuredResponse(ChatRewriteAiResponse.class,
+				rewrite(true, setup.paragraph.content(), "", List.of()));
 		ChatAiResponse ai = response(true, "난 호기심이 나서 흰 토끼를 따라갔어.",
 				List.of(setup.paragraph.id()), List.of(setup.relation.id()));
 		fakeAiClient.enqueueStructuredResponse(ChatAiResponse.class, ai);
@@ -84,6 +86,8 @@ class ChatApiIntegrationTests {
 	@Test
 	void 근거가_부족하면_AI가_쓴_내용_대신_모른다는_답변을_반환한다() throws Exception {
 		Setup setup = setup();
+		fakeAiClient.enqueueStructuredResponse(ChatRewriteAiResponse.class,
+				rewrite(true, "내가 달에 간 적이 있어?", "", List.of()));
 		fakeAiClient.enqueueStructuredResponse(ChatAiResponse.class,
 				response(false, "근거 없이 만든 답", List.of(), List.of()));
 
@@ -100,6 +104,8 @@ class ChatApiIntegrationTests {
 	@Test
 	void 제공하지_않은_근거_ID를_인용한_답변은_거부한다() throws Exception {
 		Setup setup = setup();
+		fakeAiClient.enqueueStructuredResponse(ChatRewriteAiResponse.class,
+				rewrite(true, setup.paragraph.content(), "", List.of()));
 		fakeAiClient.enqueueStructuredResponse(ChatAiResponse.class,
 				response(true, "잘못된 근거의 답", List.of(999999L), List.of()));
 		mockMvc.perform(post("/api/books/{bookId}/chat", setup.bookId)
@@ -189,6 +195,40 @@ class ChatApiIntegrationTests {
 				.andExpect(jsonPath("$.debug.rewrite.standaloneQuery").value(setup.paragraph.content()));
 	}
 
+	@Test
+	void greeting_is_answered_as_social_without_rag_evidence() throws Exception {
+		Setup setup = setup();
+		fakeAiClient.enqueueStructuredResponse(ChatRewriteAiResponse.class, socialRewrite());
+		fakeAiClient.enqueueStructuredResponse(ChatAiResponse.class,
+				response(false, "안녕! 만나서 반가워.", List.of(), List.of()));
+
+		mockMvc.perform(post("/api/books/{bookId}/chat", setup.bookId)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(new ChatRequest("안녕"))))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.answer").value("안녕! 만나서 반가워."))
+				.andExpect(jsonPath("$.responseType").value("SOCIAL"))
+				.andExpect(jsonPath("$.grounded").value(false))
+				.andExpect(jsonPath("$.debug.ragRanges").isEmpty())
+				.andExpect(jsonPath("$.debug.directRelations").isEmpty())
+				.andExpect(jsonPath("$.debug.rewrite.intent").value("SOCIAL"))
+				.andExpect(jsonPath("$.debug.rewrite.attempted").value(true));
+	}
+
+	@Test
+	void social_response_cannot_use_factual_evidence_ids() throws Exception {
+		Setup setup = setup();
+		fakeAiClient.enqueueStructuredResponse(ChatRewriteAiResponse.class, socialRewrite());
+		fakeAiClient.enqueueStructuredResponse(ChatAiResponse.class,
+				response(true, "근거를 잘못 붙인 인사", List.of(setup.paragraph.id()), List.of()));
+
+		mockMvc.perform(post("/api/books/{bookId}/chat", setup.bookId)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(new ChatRequest("안녕"))))
+				.andExpect(status().isBadGateway())
+				.andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("일상 대화 응답")));
+	}
+
 	private Setup setup() {
 		Long bookId = bookService.importBook(BOOK_KEY).id();
 		EntityCandidate alice = new EntityCandidate(bookId, EntityType.CHARACTER, "앨리스", "이야기의 주인공", 0.98);
@@ -234,10 +274,21 @@ class ChatApiIntegrationTests {
 	private ChatRewriteAiResponse rewrite(boolean resolved, String standaloneQuery, String ambiguousReference,
 	                                      List<String> candidates) {
 		ChatRewriteAiResponse response = new ChatRewriteAiResponse();
+		response.intent = "FACTUAL";
 		response.resolved = resolved;
 		response.standaloneQuery = standaloneQuery;
 		response.ambiguousReference = ambiguousReference;
 		response.referentCandidates = candidates;
+		return response;
+	}
+
+	private ChatRewriteAiResponse socialRewrite() {
+		ChatRewriteAiResponse response = new ChatRewriteAiResponse();
+		response.intent = "SOCIAL";
+		response.resolved = true;
+		response.standaloneQuery = "";
+		response.ambiguousReference = "";
+		response.referentCandidates = List.of();
 		return response;
 	}
 

@@ -12,7 +12,7 @@ public record ChatResponse(Long bookId, CharacterSummary character, String answe
 	                    List<RagSearchResponse.Range> ragRanges,
 	                    List<DirectKnowledgeRelation> directRelations,
 	                    Rewrite rewrite) { }
-	public record Rewrite(boolean attempted, boolean resolved, boolean fallback,
+	public record Rewrite(String intent, boolean attempted, boolean resolved, boolean fallback,
 					  String standaloneQuery, String ambiguousReference,
 					  List<String> referentCandidates) { }
 }

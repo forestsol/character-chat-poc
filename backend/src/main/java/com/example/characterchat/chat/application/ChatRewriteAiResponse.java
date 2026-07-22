@@ -3,6 +3,7 @@ package com.example.characterchat.chat.application;
 import java.util.List;
 
 public class ChatRewriteAiResponse {
+	public String intent;
 	public boolean resolved;
 	public String standaloneQuery;
 	public String ambiguousReference;

@@ -41,7 +41,11 @@ public class ChatService {
 		대화 기록은 대명사와 생략 표현을 이해하기 위한 문맥일 뿐 사실 근거가 아닙니다. 이전 캐릭터 답변의 내용을 새로운 사실의 근거로 사용하지 마세요.
 		""";
 	private static final String REWRITE_RULES = """
-		당신은 대화의 현재 질문을 검색에 사용할 독립 질문으로 정리합니다. 질문에 답하지 마세요.
+		당신은 대화의 현재 입력 의도를 판정하고, 사실 질문이면 검색에 사용할 독립 질문으로 정리합니다. 질문에 답하지 마세요.
+		intent는 FACTUAL 또는 SOCIAL 중 하나만 사용하세요.
+		책의 사건, 장소, 인물, 관계, 성격, 감정, 경험을 묻거나 확인하는 입력은 말투가 가벼워도 FACTUAL입니다.
+		인사, 감사, 사과, 작별, 칭찬, 대화에 대한 짧은 반응처럼 책의 사실 확인이 전혀 필요 없는 입력만 SOCIAL입니다.
+		SOCIAL이면 resolved=true이고 standaloneQuery, ambiguousReference, referentCandidates를 모두 비워 반환하세요.
 		최근 대화는 대명사, 지시어, 생략된 대상과 시점을 해석할 때만 사용하세요.
 		현재 질문이 이미 독립적이고 명확하면 표현을 바꾸지 말고 standaloneQuery에 그대로 반환하세요.
 		'너', '네가', '너희'는 현재 대화 캐릭터를 가리킵니다. 독립 질문에서는 해당 캐릭터 이름으로 바꾸세요.
@@ -52,6 +56,14 @@ public class ChatService {
 		대상이 하나로 결정되면 resolved=true, 독립 질문, 빈 ambiguousReference, 빈 referentCandidates를 반환하세요.
 		둘 이상의 대상이 가능하거나 하나로 정할 수 없으면 resolved=false, 빈 standaloneQuery, 모호한 표현, 가능한 후보 목록을 반환하세요.
 		후보를 특정할 수 없다면 referentCandidates는 빈 목록으로 반환하세요.
+		""";
+	private static final String SOCIAL_RULES = """
+		당신은 제공된 캐릭터 프로필의 인물로 일상 대화에 답합니다.
+		캐릭터의 1인칭 시점과 말투를 유지하고 자연스럽게 1~2문장으로 답하세요.
+		이 입력은 책의 사실 확인이 필요 없는 인사, 감사, 사과, 작별 또는 가벼운 반응입니다.
+		책 속의 새로운 사건, 관계, 경험, 감정 또는 현재 행동을 만들어 덧붙이지 마세요.
+		대화 기록과 이전 답변은 말의 흐름을 이해하는 문맥일 뿐 사실 근거가 아닙니다.
+		supported=false, 빈 usedParagraphIds, 빈 usedRelationIds를 반환하세요.
 		""";
 	private static final String CLARIFICATION_RULES = """
 		당신은 제공된 캐릭터 프로필의 인물로 답합니다.
@@ -88,9 +100,10 @@ public class ChatService {
 
 		RewriteResult rewrite = rewriteQuestion(question, history, character.name());
 		try {
-			ChatResponse response = rewrite.resolved()
-					? answer(bookId, question, history, rewrite, character, profile)
-					: clarify(bookId, question, history, rewrite, character, profile);
+		ChatResponse response;
+		if (rewrite.intent().equals("SOCIAL")) response = social(bookId, question, history, rewrite, character, profile);
+		else if (rewrite.resolved()) response = answer(bookId, question, history, rewrite, character, profile);
+		else response = clarify(bookId, question, history, rewrite, character, profile);
 			chatMapper.updateBookStatus(bookId, "CHAT_READY");
 			return response;
 		} catch (ChatGenerationException exception) {
@@ -101,7 +114,6 @@ public class ChatService {
 	}
 
 	private RewriteResult rewriteQuestion(String question, List<ChatRequest.HistoryMessage> history, String characterName) {
-		if (history.isEmpty()) return RewriteResult.notAttempted(question);
 		try {
 			ChatRewriteAiResponse ai = aiClient.generateStructured(new AiTextRequest(
 					REWRITE_RULES, rewritePrompt(question, history, characterName)), ChatRewriteAiResponse.class);
@@ -113,18 +125,40 @@ public class ChatService {
 
 	private RewriteResult validateRewrite(ChatRewriteAiResponse ai, String originalQuestion) {
 		if (ai == null) throw new RewriteValidationException();
+		String intent = ai.intent == null ? "" : ai.intent.strip().toUpperCase(java.util.Locale.ROOT);
+		if (!intent.equals("FACTUAL") && !intent.equals("SOCIAL")) throw new RewriteValidationException();
 		List<String> candidates = cleanCandidates(ai.referentCandidates);
+		if (intent.equals("SOCIAL")) {
+			if (!ai.resolved || (ai.standaloneQuery != null && !ai.standaloneQuery.isBlank())
+					|| (ai.ambiguousReference != null && !ai.ambiguousReference.isBlank()) || !candidates.isEmpty())
+				throw new RewriteValidationException();
+			return new RewriteResult("SOCIAL", true, true, false, "", "", List.of());
+		}
 		if (ai.resolved) {
 			if (ai.standaloneQuery == null || ai.standaloneQuery.isBlank()) throw new RewriteValidationException();
 			String standalone = ai.standaloneQuery.strip();
 			if (standalone.length() > MAX_QUESTION_LENGTH) throw new RewriteValidationException();
-			return new RewriteResult(true, true, false, standalone, "", List.of());
+			return new RewriteResult("FACTUAL", true, true, false, standalone, "", List.of());
 		}
 		String reference = ai.ambiguousReference == null ? "" : ai.ambiguousReference.strip();
 		if (candidates.isEmpty() && isExplicitNamedReference(reference, originalQuestion)) {
-			return new RewriteResult(true, true, false, originalQuestion, "", List.of());
+			return new RewriteResult("FACTUAL", true, true, false, originalQuestion, "", List.of());
 		}
-		return new RewriteResult(true, false, false, "", reference, candidates);
+		return new RewriteResult("FACTUAL", true, false, false, "", reference, candidates);
+	}
+
+	private ChatResponse social(Long bookId, String question, List<ChatRequest.HistoryMessage> history,
+	                            RewriteResult rewrite, CharacterRecord character, CharacterProfile profile) {
+		ChatAiResponse ai = aiClient.generateStructured(new AiTextRequest(
+				SOCIAL_RULES + "\n\n캐릭터 프로필 지침\n" + profile.getSystemPrompt(),
+				socialPrompt(question, history, character, profile)), ChatAiResponse.class);
+		if (ai == null) throw new ChatGenerationException("AI 일상 대화 응답이 없습니다.");
+		List<Long> paragraphIds = ai.usedParagraphIds == null ? List.of() : ai.usedParagraphIds;
+		List<Long> relationIds = ai.usedRelationIds == null ? List.of() : ai.usedRelationIds;
+		if (ai.supported || !paragraphIds.isEmpty() || !relationIds.isEmpty())
+			throw new ChatGenerationException("일상 대화 응답에는 사실 근거 ID를 사용할 수 없습니다.");
+		return new ChatResponse(bookId, characterSummary(character, profile), required(ai.answer), false, "SOCIAL",
+				new ChatResponse.Debug(List.of(), List.of(), List.of(), List.of(), rewrite.debug()));
 	}
 
 	private ChatResponse answer(Long bookId, String originalQuestion, List<ChatRequest.HistoryMessage> history,
@@ -175,6 +209,14 @@ public class ChatService {
 
 	private String rewritePrompt(String question, List<ChatRequest.HistoryMessage> history, String characterName) {
 		return "현재 대화 캐릭터: " + characterName + "\n최근 대화:\n" + formatHistory(history) + "\n현재 질문: " + question;
+	}
+
+	private String socialPrompt(String question, List<ChatRequest.HistoryMessage> history,
+	                           CharacterRecord character, CharacterProfile profile) {
+		return "캐릭터: " + character.name()
+				+ "\n말투: " + profile.getSpeechStyle()
+				+ "\n최근 대화(문맥 전용, 사실 근거 아님):\n" + formatHistory(history)
+				+ "\n사용자의 현재 입력: " + question;
 	}
 
 	private boolean isExplicitNamedReference(String reference, String question) {
@@ -273,18 +315,14 @@ public class ChatService {
 		return value.strip();
 	}
 
-	private record RewriteResult(boolean attempted, boolean resolved, boolean fallback, String standaloneQuery,
+	private record RewriteResult(String intent, boolean attempted, boolean resolved, boolean fallback, String standaloneQuery,
 	                             String ambiguousReference, List<String> referentCandidates) {
-		static RewriteResult notAttempted(String question) {
-			return new RewriteResult(false, true, false, question, "", List.of());
-		}
-
 		static RewriteResult fallback(String question) {
-			return new RewriteResult(true, true, true, question, "", List.of());
+			return new RewriteResult("FACTUAL", true, true, true, question, "", List.of());
 		}
 
 		ChatResponse.Rewrite debug() {
-			return new ChatResponse.Rewrite(attempted, resolved, fallback, standaloneQuery,
+			return new ChatResponse.Rewrite(intent, attempted, resolved, fallback, standaloneQuery,
 					ambiguousReference, referentCandidates);
 		}
 	}

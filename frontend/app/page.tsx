@@ -145,7 +145,7 @@ export default function Home() {
                           <div key={index} className="ml-auto max-w-[82%] rounded-[1.4rem_1.4rem_.35rem_1.4rem] bg-ink px-5 py-3.5 text-sm leading-6 text-white">{message.content}</div> :
                           <div key={index} className="max-w-[88%] rounded-[1.4rem_1.4rem_1.4rem_.35rem] bg-white px-5 py-4 shadow-sm">
                             <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-moss">
-                              {message.responseType === "ANSWER" ? <><CheckCircle2 size={14} /> 근거 확인됨</> : message.responseType === "CLARIFICATION" ? <><MessageCircle size={14} /> 대상 확인</> : <><CircleAlert size={14} /> 확인 가능한 근거 없음</>}
+                              {message.responseType === "ANSWER" ? <><CheckCircle2 size={14} /> 근거 확인됨</> : message.responseType === "CLARIFICATION" ? <><MessageCircle size={14} /> 대상 확인</> : message.responseType === "SOCIAL" ? <><MessageCircle size={14} /> 일상 대화</> : <><CircleAlert size={14} /> 확인 가능한 근거 없음</>}
                             </div><p className="leading-7 text-ink">{message.content}</p>
                           </div>)}
                         {chat.isPending && chat.variables && <div className="ml-auto max-w-[82%] rounded-[1.4rem_1.4rem_.35rem_1.4rem] bg-ink px-5 py-3.5 text-sm leading-6 text-white">{chat.variables.value}</div>}

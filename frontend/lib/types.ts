@@ -32,18 +32,18 @@ export type DirectRelation = {
 export type ChatMessage = {
   role: "USER" | "ASSISTANT";
   content: string;
-  responseType?: "ANSWER" | "CLARIFICATION" | "UNKNOWN";
+  responseType?: "ANSWER" | "CLARIFICATION" | "UNKNOWN" | "SOCIAL";
 };
 export type ChatResponse = {
   bookId: number;
   character: { id: number; name: string; narrativeRole: string; storyPoint: string };
   answer: string;
   grounded: boolean;
-  responseType: "ANSWER" | "CLARIFICATION" | "UNKNOWN";
+  responseType: "ANSWER" | "CLARIFICATION" | "UNKNOWN" | "SOCIAL";
   debug: {
     usedParagraphIds: number[]; usedRelationIds: number[]; ragRanges: RagRange[]; directRelations: DirectRelation[];
     rewrite: {
-      attempted: boolean; resolved: boolean; fallback: boolean; standaloneQuery: string;
+      intent: "FACTUAL" | "SOCIAL"; attempted: boolean; resolved: boolean; fallback: boolean; standaloneQuery: string;
       ambiguousReference: string; referentCandidates: string[];
     };
   };
