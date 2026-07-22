@@ -48,6 +48,7 @@ public class ImageAnalysisService {
 			기존 후보와 확실히 같은 경우에만 matchedCandidateName에 제공된 정규 이름을 정확히 넣으세요.
 			이름을 특정할 수 없는 시각 개체는 entities에 넣지 마세요.
 			사실의 주체를 특정할 수 없으면 fact의 subjectName을 빈 문자열로 두고 CANDIDATE 또는 UNKNOWN을 사용하세요.
+			'다른 동물', '새들', '여러 사람' 같은 불특정 집합 표현도 subjectName에 넣지 말고 빈 문자열로 두세요.
 			입력 이미지 순서와 imageOrder가 일치해야 합니다.
 			""";
 
@@ -194,10 +195,10 @@ public class ImageAnalysisService {
 
 		List<String> parts = java.util.Arrays.stream(subjectName.strip().split("\\s*(?:와|과|및|그리고|,|·|&|/)\\s*"))
 				.filter(part -> !part.isBlank()).toList();
-		if (parts.size() < 2) throw new ImageAnalysisException("연결할 수 없는 fact subjectName입니다: " + subjectName);
+		if (parts.size() < 2) return java.util.Collections.singletonList(null);
 		List<String> keys = parts.stream().map(part -> resolveSubjectKey(part, pageSubjects, candidates)).toList();
 		if (keys.stream().anyMatch(java.util.Objects::isNull)) {
-			throw new ImageAnalysisException("연결할 수 없는 복합 fact subjectName입니다: " + subjectName);
+			return java.util.Collections.singletonList(null);
 		}
 		return keys.stream().distinct().toList();
 	}

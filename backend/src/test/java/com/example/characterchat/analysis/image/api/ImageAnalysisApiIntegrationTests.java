@@ -107,6 +107,23 @@ class ImageAnalysisApiIntegrationTests {
 	}
 
 	@Test
+	void 특정할_수_없는_복합_fact_주체는_미지정_사실로_보존하고_계속한다() throws Exception {
+		long bookId = importBook();
+		ImageAnalysisAiResponse firstPage = imageResponse(false, 1, "IMAGE", "함께 모여 있다");
+		firstPage.facts.get(0).subjectName = "다른 동물과 새들";
+		fakeAiClient.enqueueImageStructuredResponse(ImageAnalysisAiResponse.class, firstPage);
+		for (int page = 2; page <= 10; page++) {
+			fakeAiClient.enqueueImageStructuredResponse(ImageAnalysisAiResponse.class,
+					imageResponse(false, 1, "IMAGE", "페이지 " + page + "의 장면"));
+		}
+
+		mockMvc.perform(post("/api/books/{bookId}/image-analysis/analyze", bookId))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.length()").value(10))
+				.andExpect(jsonPath("$[0].subjectCandidateId").doesNotExist());
+	}
+
+	@Test
 	void 이름을_특정하지_못한_빈_시각_개체만_제외하고_분석을_계속한다() throws Exception {
 		long bookId = importBook();
 		ImageAnalysisAiResponse firstPage = imageResponse(false, 1, "IMAGE", "이름을 알 수 없는 인물이 보인다");
