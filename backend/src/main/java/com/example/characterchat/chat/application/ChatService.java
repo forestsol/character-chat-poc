@@ -44,6 +44,10 @@ public class ChatService {
 		당신은 대화의 현재 질문을 검색에 사용할 독립 질문으로 정리합니다. 질문에 답하지 마세요.
 		최근 대화는 대명사, 지시어, 생략된 대상과 시점을 해석할 때만 사용하세요.
 		현재 질문이 이미 독립적이고 명확하면 표현을 바꾸지 말고 standaloneQuery에 그대로 반환하세요.
+		'너', '네가', '너희'는 현재 대화 캐릭터를 가리킵니다. 독립 질문에서는 해당 캐릭터 이름으로 바꾸세요.
+		질문에 '토끼', '여왕', '고양이'처럼 대상 명사가 직접 쓰였고 최근 대화에 같은 종류의 경쟁 대상이 없다면 명확한 질문으로 처리하세요.
+		'어디더라', '뭐였지', '누구였지'는 기억을 되짚는 말투일 뿐, 이것만으로 모호하다고 판단하지 마세요.
+		단순히 대상을 더 자세히 부를 수 있다는 이유로 resolved=false를 반환하지 마세요. 실제로 둘 이상의 대상이 가능할 때만 모호하다고 판단하세요.
 		대화에 없는 사실을 추가하거나 질문의 범위를 넓히거나 좁히지 마세요.
 		대상이 하나로 결정되면 resolved=true, 독립 질문, 빈 ambiguousReference, 빈 referentCandidates를 반환하세요.
 		둘 이상의 대상이 가능하거나 하나로 정할 수 없으면 resolved=false, 빈 standaloneQuery, 모호한 표현, 가능한 후보 목록을 반환하세요.
@@ -82,7 +86,7 @@ public class ChatService {
 		CharacterProfile profile = profileMapper.findProfileByBookId(bookId);
 		if (profile == null) throw new ChatException("캐릭터 프로필을 먼저 생성해야 합니다.");
 
-		RewriteResult rewrite = rewriteQuestion(question, history);
+		RewriteResult rewrite = rewriteQuestion(question, history, character.name());
 		try {
 			ChatResponse response = rewrite.resolved()
 					? answer(bookId, question, history, rewrite, character, profile)
@@ -96,18 +100,18 @@ public class ChatService {
 		}
 	}
 
-	private RewriteResult rewriteQuestion(String question, List<ChatRequest.HistoryMessage> history) {
+	private RewriteResult rewriteQuestion(String question, List<ChatRequest.HistoryMessage> history, String characterName) {
 		if (history.isEmpty()) return RewriteResult.notAttempted(question);
 		try {
 			ChatRewriteAiResponse ai = aiClient.generateStructured(new AiTextRequest(
-					REWRITE_RULES, rewritePrompt(question, history)), ChatRewriteAiResponse.class);
-			return validateRewrite(ai);
+					REWRITE_RULES, rewritePrompt(question, history, characterName)), ChatRewriteAiResponse.class);
+			return validateRewrite(ai, question);
 		} catch (AiClientException | RewriteValidationException exception) {
 			return RewriteResult.fallback(question);
 		}
 	}
 
-	private RewriteResult validateRewrite(ChatRewriteAiResponse ai) {
+	private RewriteResult validateRewrite(ChatRewriteAiResponse ai, String originalQuestion) {
 		if (ai == null) throw new RewriteValidationException();
 		List<String> candidates = cleanCandidates(ai.referentCandidates);
 		if (ai.resolved) {
@@ -117,6 +121,9 @@ public class ChatService {
 			return new RewriteResult(true, true, false, standalone, "", List.of());
 		}
 		String reference = ai.ambiguousReference == null ? "" : ai.ambiguousReference.strip();
+		if (candidates.isEmpty() && isExplicitNamedReference(reference, originalQuestion)) {
+			return new RewriteResult(true, true, false, originalQuestion, "", List.of());
+		}
 		return new RewriteResult(true, false, false, "", reference, candidates);
 	}
 
@@ -166,8 +173,15 @@ public class ChatService {
 		return new ChatResponse.CharacterSummary(character.id(), character.name(), character.narrativeRole(), profile.getStoryPoint());
 	}
 
-	private String rewritePrompt(String question, List<ChatRequest.HistoryMessage> history) {
-		return "최근 대화:\n" + formatHistory(history) + "\n현재 질문: " + question;
+	private String rewritePrompt(String question, List<ChatRequest.HistoryMessage> history, String characterName) {
+		return "현재 대화 캐릭터: " + characterName + "\n최근 대화:\n" + formatHistory(history) + "\n현재 질문: " + question;
+	}
+
+	private boolean isExplicitNamedReference(String reference, String question) {
+		if (reference.isBlank() || !question.contains(reference)) return false;
+		String normalized = reference.replaceAll("\\s+", "");
+		return !Set.of("그", "그녀", "그사람", "그분", "걔", "그아이", "그동물", "그것", "그거",
+				"거기", "그곳", "그때", "저사람", "이사람", "저것", "이것").contains(normalized);
 	}
 
 	private String answerPrompt(String originalQuestion, List<ChatRequest.HistoryMessage> history, String standaloneQuery,

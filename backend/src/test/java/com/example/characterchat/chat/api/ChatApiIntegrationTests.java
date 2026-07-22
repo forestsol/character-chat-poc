@@ -154,6 +154,25 @@ class ChatApiIntegrationTests {
 	}
 
 	@Test
+	void explicit_noun_without_competing_candidates_is_not_treated_as_ambiguous() throws Exception {
+		Setup setup = setup();
+		fakeAiClient.enqueueStructuredResponse(ChatRewriteAiResponse.class,
+				rewrite(false, "", "토끼", List.of()));
+		fakeAiClient.enqueueStructuredResponse(ChatAiResponse.class,
+				response(true, "강둑에서 처음 봤어.", List.of(), List.of(setup.relation.id())));
+
+		ChatRequest request = new ChatRequest("너가 토끼를 본 곳은 어디더라", List.of(
+				new ChatRequest.HistoryMessage("USER", "너의 성격은 어떤 성격이야"),
+				new ChatRequest.HistoryMessage("ASSISTANT", "이해되지 않는 일은 그냥 받아들이지 않아.")));
+		mockMvc.perform(post("/api/books/{bookId}/chat", setup.bookId)
+				.contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(request)))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.responseType").value("ANSWER"))
+				.andExpect(jsonPath("$.debug.rewrite.resolved").value(true))
+				.andExpect(jsonPath("$.debug.rewrite.standaloneQuery").value("너가 토끼를 본 곳은 어디더라"));
+	}
+
+	@Test
 	void falls_back_to_original_question_when_rewrite_fails() throws Exception {
 		Setup setup = setup();
 		fakeAiClient.enqueueStructuredFailure(ChatRewriteAiResponse.class, "재작성 일시 실패");
