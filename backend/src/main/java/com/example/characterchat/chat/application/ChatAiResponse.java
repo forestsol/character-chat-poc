@@ -7,5 +7,5 @@ public class ChatAiResponse {
 	public boolean supported;
 	public List<Long> usedParagraphIds;
 	public List<Long> usedRelationIds;
+	public List<Long> usedProfileEvidenceIds;
 }
-

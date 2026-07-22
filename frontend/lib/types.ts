@@ -10,7 +10,7 @@ export type CharacterReview = {
 };
 
 export type ProfileEvidence = {
-  profileField: string; paragraphId: number | null; imageId: number | null; sourceType: string;
+  id: number; profileField: string; paragraphId: number | null; imageId: number | null; sourceType: string;
   inferenceType: string; description: string; confidence: number;
 };
 
@@ -41,7 +41,8 @@ export type ChatResponse = {
   grounded: boolean;
   responseType: "ANSWER" | "CLARIFICATION" | "UNKNOWN" | "SOCIAL";
   debug: {
-    usedParagraphIds: number[]; usedRelationIds: number[]; ragRanges: RagRange[]; directRelations: DirectRelation[];
+    usedParagraphIds: number[]; usedRelationIds: number[]; usedProfileEvidenceIds: number[];
+    ragRanges: RagRange[]; directRelations: DirectRelation[]; profileEvidence: ProfileEvidence[];
     rewrite: {
       intent: "FACTUAL" | "SOCIAL"; attempted: boolean; resolved: boolean; fallback: boolean; standaloneQuery: string;
       ambiguousReference: string; referentCandidates: string[];

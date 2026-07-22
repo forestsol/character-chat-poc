@@ -12,6 +12,7 @@ import com.example.characterchat.book.persistence.BookMapper;
 import com.example.characterchat.chat.application.ChatAiResponse;
 import com.example.characterchat.chat.application.ChatRewriteAiResponse;
 import com.example.characterchat.profile.domain.CharacterProfile;
+import com.example.characterchat.profile.domain.ProfileEvidence;
 import com.example.characterchat.profile.persistence.CharacterProfileMapper;
 import com.example.characterchat.rag.application.RagService;
 import com.example.characterchat.rag.domain.RagParagraph;
@@ -229,6 +230,29 @@ class ChatApiIntegrationTests {
 				.andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("일상 대화 응답")));
 	}
 
+	@Test
+	void character_preference_question_can_use_verified_inferred_profile_evidence() throws Exception {
+		Setup setup = setup();
+		fakeAiClient.enqueueStructuredResponse(ChatRewriteAiResponse.class,
+				rewrite(true, "앨리스는 이상한 나라에 다시 가고 싶어?", "", List.of()));
+		ChatAiResponse ai = response(true,
+				"조금 망설여지긴 하지만, 다시 갈 수 있다면 가보고 싶어. 아직 궁금한 게 많거든!",
+				List.of(), List.of());
+		ai.usedProfileEvidenceIds = List.of(setup.profileEvidence.id());
+		fakeAiClient.enqueueStructuredResponse(ChatAiResponse.class, ai);
+
+		mockMvc.perform(post("/api/books/{bookId}/chat", setup.bookId)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(new ChatRequest("이상한 나라에 다시 가고 싶어?"))))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.responseType").value("ANSWER"))
+				.andExpect(jsonPath("$.grounded").value(true))
+				.andExpect(jsonPath("$.debug.usedProfileEvidenceIds[0]").value(setup.profileEvidence.id()))
+				.andExpect(jsonPath("$.debug.profileEvidence[0].inferenceType").value("INFERRED"));
+		assertThat(fakeAiClient.getLastTextRequest().userPrompt())
+				.contains("검증된 캐릭터 프로필 근거", "profileEvidenceId=" + setup.profileEvidence.id(), "호기심");
+	}
+
 	private Setup setup() {
 		Long bookId = bookService.importBook(BOOK_KEY).id();
 		EntityCandidate alice = new EntityCandidate(bookId, EntityType.CHARACTER, "앨리스", "이야기의 주인공", 0.98);
@@ -245,10 +269,14 @@ class ChatApiIntegrationTests {
 		KnowledgeRelation relation = graphMapper.findRelationsByBookId(bookId).get(0);
 		reviewWriter.approve(alice, "MAIN", true);
 		CharacterRecord character = profileMapper.findChatEnabledCharacterByBookId(bookId);
-		profileMapper.insertProfile(profile(character.id()));
+		CharacterProfile profile = profile(character.id());
+		profileMapper.insertProfile(profile);
 		ragService.index(bookId);
 		RagParagraph paragraph = ragMapper.findParagraphsByBookId(bookId).get(0);
-		return new Setup(bookId, paragraph, relation);
+		profileMapper.insertEvidence(new ProfileEvidence(null, profile.getId(), "PERSONALITY", paragraph.id(), null,
+				"TEXT", "INFERRED", "낯선 것을 직접 확인하는 호기심과 모험 성향", 0.92));
+		ProfileEvidence profileEvidence = profileMapper.findEvidenceByProfileId(profile.getId()).get(0);
+		return new Setup(bookId, paragraph, relation, profileEvidence);
 	}
 
 	private KnowledgeEntity entity(Long bookId, String type, String referenceType, Long referenceId, String name) {
@@ -292,5 +320,6 @@ class ChatApiIntegrationTests {
 		return response;
 	}
 
-	private record Setup(Long bookId, RagParagraph paragraph, KnowledgeRelation relation) { }
+	private record Setup(Long bookId, RagParagraph paragraph, KnowledgeRelation relation,
+	                     ProfileEvidence profileEvidence) { }
 }

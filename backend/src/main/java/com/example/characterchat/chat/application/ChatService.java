@@ -8,6 +8,7 @@ import com.example.characterchat.chat.api.ChatResponse;
 import com.example.characterchat.chat.domain.DirectKnowledgeRelation;
 import com.example.characterchat.chat.persistence.ChatMapper;
 import com.example.characterchat.profile.domain.CharacterProfile;
+import com.example.characterchat.profile.domain.ProfileEvidence;
 import com.example.characterchat.profile.persistence.CharacterProfileMapper;
 import com.example.characterchat.rag.api.RagSearchResponse;
 import com.example.characterchat.rag.application.RagService;
@@ -38,6 +39,10 @@ public class ChatService {
 		답변은 캐릭터의 말투로 자연스럽고 간결하게 1~4문장으로 작성하세요.
 		supported=true이면 실제 사용한 paragraphId 또는 relationId를 하나 이상 반환하세요.
 		usedParagraphIds와 usedRelationIds에는 제공된 ID만 넣으세요.
+		캐릭터 프로필 근거를 사용했다면 usedProfileEvidenceIds에 제공된 profileEvidenceId를 넣으세요.
+		INFERRED 프로필 근거는 성격과 행동에 일관된 선호·의향·가정 질문에 사용할 수 있습니다. 이때 명시된 사실처럼 단정하지 말고 '아마', '다시 기회가 있다면', '조금 망설여지지만'처럼 추론임이 자연스럽게 드러나게 답하세요.
+		직접 답한 문장이 없더라도 질문과 관련된 성격, 가치관, 목표, 행동 근거가 있으면 supported=true로 답하고 결론을 회피하지 마세요.
+		프로필 근거가 질문과 관련 없으면 사용하지 마세요. 성격과 행동으로도 뒷받침되지 않는 새로운 취향, 계획, 감정은 만들지 마세요.
 		대화 기록은 대명사와 생략 표현을 이해하기 위한 문맥일 뿐 사실 근거가 아닙니다. 이전 캐릭터 답변의 내용을 새로운 사실의 근거로 사용하지 마세요.
 		""";
 	private static final String REWRITE_RULES = """
@@ -64,6 +69,7 @@ public class ChatService {
 		책 속의 새로운 사건, 관계, 경험, 감정 또는 현재 행동을 만들어 덧붙이지 마세요.
 		대화 기록과 이전 답변은 말의 흐름을 이해하는 문맥일 뿐 사실 근거가 아닙니다.
 		supported=false, 빈 usedParagraphIds, 빈 usedRelationIds를 반환하세요.
+		usedProfileEvidenceIds도 빈 목록으로 반환하세요.
 		""";
 	private static final String CLARIFICATION_RULES = """
 		당신은 제공된 캐릭터 프로필의 인물로 답합니다.
@@ -71,6 +77,7 @@ public class ChatService {
 		후보가 있으면 후보를 자연스럽게 열거해 구체적으로 되묻고, 후보가 없으면 일반적으로 되물으세요.
 		캐릭터의 1인칭 시점과 말투를 유지하세요. 분석 시스템 용어를 말하지 마세요.
 		supported=false, 빈 usedParagraphIds, 빈 usedRelationIds를 반환하세요.
+		usedProfileEvidenceIds도 빈 목록으로 반환하세요.
 		대화 기록과 이전 답변은 사실 근거가 아닙니다.
 		""";
 
@@ -155,21 +162,23 @@ public class ChatService {
 		if (ai == null) throw new ChatGenerationException("AI 일상 대화 응답이 없습니다.");
 		List<Long> paragraphIds = ai.usedParagraphIds == null ? List.of() : ai.usedParagraphIds;
 		List<Long> relationIds = ai.usedRelationIds == null ? List.of() : ai.usedRelationIds;
-		if (ai.supported || !paragraphIds.isEmpty() || !relationIds.isEmpty())
+		List<Long> profileEvidenceIds = ai.usedProfileEvidenceIds == null ? List.of() : ai.usedProfileEvidenceIds;
+		if (ai.supported || !paragraphIds.isEmpty() || !relationIds.isEmpty() || !profileEvidenceIds.isEmpty())
 			throw new ChatGenerationException("일상 대화 응답에는 사실 근거 ID를 사용할 수 없습니다.");
 		return new ChatResponse(bookId, characterSummary(character, profile), required(ai.answer), false, "SOCIAL",
-				new ChatResponse.Debug(List.of(), List.of(), List.of(), List.of(), rewrite.debug()));
+				new ChatResponse.Debug(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), rewrite.debug()));
 	}
 
 	private ChatResponse answer(Long bookId, String originalQuestion, List<ChatRequest.HistoryMessage> history,
 	                            RewriteResult rewrite, CharacterRecord character, CharacterProfile profile) {
 		RagSearchResponse rag = ragService.search(bookId, rewrite.standaloneQuery());
 		List<DirectKnowledgeRelation> relations = chatMapper.findDirectRelations(bookId, character.knowledgeEntityId());
+		List<ProfileEvidence> profileEvidence = profileMapper.findEvidenceByProfileId(profile.getId());
 		ChatAiResponse ai = aiClient.generateStructured(new AiTextRequest(
 				SYSTEM_RULES + "\n\n캐릭터 프로필 지침\n" + profile.getSystemPrompt(),
-				answerPrompt(originalQuestion, history, rewrite.standaloneQuery(), character, profile, rag, relations)),
+				answerPrompt(originalQuestion, history, rewrite.standaloneQuery(), character, profile, profileEvidence, rag, relations)),
 				ChatAiResponse.class);
-		return validateAndBuild(bookId, character, profile, rag, relations, rewrite, ai);
+		return validateAndBuild(bookId, character, profile, profileEvidence, rag, relations, rewrite, ai);
 	}
 
 	private ChatResponse clarify(Long bookId, String question, List<ChatRequest.HistoryMessage> history,
@@ -179,28 +188,37 @@ public class ChatService {
 				clarificationPrompt(question, history, rewrite, character)), ChatAiResponse.class);
 		String answer = required(ai == null ? null : ai.answer);
 		return new ChatResponse(bookId, characterSummary(character, profile), answer, false, "CLARIFICATION",
-				new ChatResponse.Debug(List.of(), List.of(), List.of(), List.of(), rewrite.debug()));
+				new ChatResponse.Debug(List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), rewrite.debug()));
 	}
 
 	private ChatResponse validateAndBuild(Long bookId, CharacterRecord character, CharacterProfile profile,
-	                                      RagSearchResponse rag, List<DirectKnowledgeRelation> relations,
+	                                      List<ProfileEvidence> profileEvidence, RagSearchResponse rag,
+	                                      List<DirectKnowledgeRelation> relations,
 	                                      RewriteResult rewrite, ChatAiResponse ai) {
 		if (ai == null) throw new ChatGenerationException("AI 캐릭터 응답이 없습니다.");
 		List<Long> paragraphIds = ai.usedParagraphIds == null ? List.of() : ai.usedParagraphIds.stream().distinct().toList();
 		List<Long> relationIds = ai.usedRelationIds == null ? List.of() : ai.usedRelationIds.stream().distinct().toList();
+		List<Long> profileEvidenceIds = ai.usedProfileEvidenceIds == null ? List.of()
+				: ai.usedProfileEvidenceIds.stream().distinct().toList();
 		Set<Long> allowedParagraphs = new HashSet<>();
 		rag.ranges().forEach(range -> range.paragraphs().forEach(p -> allowedParagraphs.add(p.paragraphId())));
 		Set<Long> allowedRelations = relations.stream().map(DirectKnowledgeRelation::id).collect(java.util.stream.Collectors.toSet());
+		Set<Long> allowedProfileEvidence = profileEvidence.stream().map(ProfileEvidence::id)
+				.collect(java.util.stream.Collectors.toSet());
 		if (!allowedParagraphs.containsAll(paragraphIds)) throw new ChatGenerationException("AI가 제공되지 않은 원문 문단을 근거로 선택했습니다.");
 		if (!allowedRelations.containsAll(relationIds)) throw new ChatGenerationException("AI가 제공되지 않은 KG 관계를 근거로 선택했습니다.");
-		if (ai.supported && paragraphIds.isEmpty() && relationIds.isEmpty())
-			throw new ChatGenerationException("근거가 있다고 판단한 응답에는 원문 또는 KG 근거가 필요합니다.");
+		if (!allowedProfileEvidence.containsAll(profileEvidenceIds))
+			throw new ChatGenerationException("AI가 제공되지 않은 캐릭터 프로필 근거를 선택했습니다.");
+		if (ai.supported && paragraphIds.isEmpty() && relationIds.isEmpty() && profileEvidenceIds.isEmpty())
+			throw new ChatGenerationException("근거가 있다고 판단한 응답에는 원문, KG 또는 프로필 근거가 필요합니다.");
 		String answer = ai.supported ? required(ai.answer) : UNKNOWN_ANSWER;
 		List<Long> usedParagraphs = ai.supported ? paragraphIds : List.of();
 		List<Long> usedRelations = ai.supported ? relationIds : List.of();
+		List<Long> usedProfileEvidence = ai.supported ? profileEvidenceIds : List.of();
 		return new ChatResponse(bookId, characterSummary(character, profile), answer, ai.supported,
 				ai.supported ? "ANSWER" : "UNKNOWN",
-				new ChatResponse.Debug(usedParagraphs, usedRelations, rag.ranges(), relations, rewrite.debug()));
+				new ChatResponse.Debug(usedParagraphs, usedRelations, usedProfileEvidence,
+						rag.ranges(), relations, profileEvidence, rewrite.debug()));
 	}
 
 	private ChatResponse.CharacterSummary characterSummary(CharacterRecord character, CharacterProfile profile) {
@@ -227,7 +245,8 @@ public class ChatService {
 	}
 
 	private String answerPrompt(String originalQuestion, List<ChatRequest.HistoryMessage> history, String standaloneQuery,
-	                            CharacterRecord character, CharacterProfile profile, RagSearchResponse rag,
+	                            CharacterRecord character, CharacterProfile profile, List<ProfileEvidence> profileEvidence,
+	                            RagSearchResponse rag,
 	                            List<DirectKnowledgeRelation> relations) {
 		StringBuilder value = new StringBuilder();
 		value.append("최근 대화(문맥 전용, 사실 근거 아님):\n").append(formatHistory(history))
@@ -243,6 +262,16 @@ public class ChatService {
 				.append("\n말투: ").append(profile.getSpeechStyle())
 				.append("\n주요 경험: ").append(profile.getMajorExperiences())
 				.append("\n알고 있는 사실: ").append(profile.getKnownFacts())
+				.append("\n\n검증된 캐릭터 프로필 근거:\n");
+		if (profileEvidence.isEmpty()) value.append("없음\n");
+		else profileEvidence.forEach(e -> value.append("[profileEvidenceId=").append(e.id())
+				.append(", profileField=").append(e.profileField())
+				.append(", inferenceType=").append(e.inferenceType())
+				.append(", confidence=").append(e.confidence())
+				.append(", paragraphId=").append(e.paragraphId())
+				.append(", imageId=").append(e.imageId()).append("] ")
+				.append(e.description()).append('\n'));
+		value
 				.append("\n\n관련 원문:\n");
 		rag.ranges().forEach(range -> range.paragraphs().forEach(p -> value.append("[paragraphId=").append(p.paragraphId())
 				.append(", pageNumber=").append(p.pageNumber()).append(", sourceOrder=").append(p.sourceOrder())

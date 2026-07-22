@@ -431,3 +431,20 @@ BLOCKED
 - SOCIAL 답변의 사실 근거 ID 사용을 서버에서 거부
 - API와 Next.js 말풍선에 `SOCIAL` 및 `일상 대화` 표시 추가
 - 첫 인사, 잘못된 SOCIAL 근거, 기존 사실 질문·모호성·fallback 통합 테스트 보강
+
+---
+
+## Task 15. 프로필 추론 기반 캐릭터 답변
+
+상태: DONE
+
+구현 결과:
+
+- 사실 질문의 최종 프롬프트에 현재 캐릭터의 전체 `profile_evidence` 제공
+- EXPLICIT/INFERRED, profileField, confidence, 원문·이미지 연결 ID를 함께 전달
+- AI 구조화 응답에 `usedProfileEvidenceIds` 추가
+- 서버에서 프로필 소속 근거 ID를 검증하고 원문·KG·프로필 중 하나 이상의 근거 요구
+- INFERRED 근거로 선호·의향·가상 질문에 답할 때 단정 강도를 낮추는 규칙 추가
+- 관련 성격·가치관·행동 근거가 있으면 결론을 회피하지 않도록 답변 정책 보강
+- Next.js 응답 근거 패널에 프로필 근거와 실제 사용 여부 표시
+- 캐릭터가 이상한 나라에 다시 갈 의향을 묻는 사례의 통합 테스트 추가

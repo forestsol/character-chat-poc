@@ -15,9 +15,9 @@ public record CharacterProfileResponse(Long id, Long characterId, String storyPo
 				profile.getGoals(), profile.getSpeechStyle(), profile.getMajorExperiences(), profile.getAttitudesTowardOthers(),
 				profile.getKnownFacts(), profile.getSystemPrompt(), evidence.stream().map(Evidence::from).toList());
 	}
-	public record Evidence(String profileField, Long paragraphId, Long imageId, String sourceType,
+	public record Evidence(Long id, String profileField, Long paragraphId, Long imageId, String sourceType,
 			String inferenceType, String description, double confidence) {
-		static Evidence from(ProfileEvidence e) { return new Evidence(e.profileField(), e.paragraphId(), e.imageId(),
+		static Evidence from(ProfileEvidence e) { return new Evidence(e.id(), e.profileField(), e.paragraphId(), e.imageId(),
 				e.sourceType(), e.inferenceType(), e.description(), e.confidence()); }
 	}
 }

@@ -2,15 +2,17 @@ package com.example.characterchat.chat.api;
 
 import com.example.characterchat.chat.domain.DirectKnowledgeRelation;
 import com.example.characterchat.rag.api.RagSearchResponse;
+import com.example.characterchat.profile.domain.ProfileEvidence;
 
 import java.util.List;
 
 public record ChatResponse(Long bookId, CharacterSummary character, String answer, boolean grounded,
 						   String responseType, Debug debug) {
 	public record CharacterSummary(Long id, String name, String narrativeRole, String storyPoint) { }
-	public record Debug(List<Long> usedParagraphIds, List<Long> usedRelationIds,
+	public record Debug(List<Long> usedParagraphIds, List<Long> usedRelationIds, List<Long> usedProfileEvidenceIds,
 	                    List<RagSearchResponse.Range> ragRanges,
 	                    List<DirectKnowledgeRelation> directRelations,
+	                    List<ProfileEvidence> profileEvidence,
 	                    Rewrite rewrite) { }
 	public record Rewrite(String intent, boolean attempted, boolean resolved, boolean fallback,
 					  String standaloneQuery, String ambiguousReference,
