@@ -1,4 +1,4 @@
-import type { BookSummary, CharacterProfile, CharacterReview, ChatResponse, KnowledgeGraph } from "./types";
+import type { BookSummary, CharacterProfile, CharacterReview, ChatMessage, ChatResponse, KnowledgeGraph } from "./types";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`/backend${path}`, {
@@ -17,7 +17,7 @@ export const api = {
   reviews: (bookId: number) => request<CharacterReview[]>(`/books/${bookId}/character-reviews`),
   profile: (bookId: number) => request<CharacterProfile>(`/books/${bookId}/character-profile`),
   kg: (bookId: number) => request<KnowledgeGraph>(`/books/${bookId}/kg`),
-  chat: (bookId: number, question: string) => request<ChatResponse>(`/books/${bookId}/chat`, {
-    method: "POST", body: JSON.stringify({ question })
+  chat: (bookId: number, question: string, history: ChatMessage[] = []) => request<ChatResponse>(`/books/${bookId}/chat`, {
+    method: "POST", body: JSON.stringify({ question, history: history.map(({ role, content }) => ({ role, content })) })
   })
 };

@@ -19,6 +19,7 @@ public class FakeAiClient implements AiClient {
 	private final Deque<String> textResponses = new ArrayDeque<>();
 	private final Deque<String> imageResponses = new ArrayDeque<>();
 	private final Map<Class<?>, Deque<Object>> structuredResponses = new HashMap<>();
+	private final Map<Class<?>, Deque<AiClientException>> structuredFailures = new HashMap<>();
 	private final Map<Class<?>, Deque<Object>> imageStructuredResponses = new HashMap<>();
 	private AiTextRequest lastTextRequest;
 
@@ -34,6 +35,11 @@ public class FakeAiClient implements AiClient {
 		structuredResponses.computeIfAbsent(responseType, ignored -> new ArrayDeque<>()).addLast(response);
 	}
 
+	public void enqueueStructuredFailure(Class<?> responseType, String message) {
+		structuredFailures.computeIfAbsent(responseType, ignored -> new ArrayDeque<>())
+				.addLast(new AiClientException(message));
+	}
+
 	public <T> void enqueueImageStructuredResponse(Class<T> responseType, T response) {
 		imageStructuredResponses.computeIfAbsent(responseType, ignored -> new ArrayDeque<>()).addLast(response);
 	}
@@ -46,6 +52,8 @@ public class FakeAiClient implements AiClient {
 	@Override
 	public <T> T generateStructured(AiTextRequest request, Class<T> responseType) {
 		lastTextRequest = request;
+		Deque<AiClientException> failures = structuredFailures.get(responseType);
+		if (failures != null && !failures.isEmpty()) throw failures.removeFirst();
 		Deque<Object> responses = structuredResponses.get(responseType);
 		if (responses == null || responses.isEmpty()) {
 			throw new AiClientException("등록된 Fake 구조화 응답이 없습니다: " + responseType.getName());
@@ -71,6 +79,7 @@ public class FakeAiClient implements AiClient {
 		textResponses.clear();
 		imageResponses.clear();
 		structuredResponses.clear();
+		structuredFailures.clear();
 		imageStructuredResponses.clear();
 		lastTextRequest = null;
 	}

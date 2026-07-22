@@ -16,7 +16,6 @@ public class ChatController {
 
 	@PostMapping
 	public ResponseEntity<ChatResponse> chat(@PathVariable Long bookId, @RequestBody ChatRequest request) {
-		return ResponseEntity.ok(service.chat(bookId, request.question()));
+		return ResponseEntity.ok(service.chat(bookId, request.question(), request.history()));
 	}
 }
-

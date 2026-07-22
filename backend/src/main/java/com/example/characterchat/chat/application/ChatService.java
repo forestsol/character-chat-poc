@@ -3,6 +3,7 @@ package com.example.characterchat.chat.application;
 import com.example.characterchat.ai.AiClient;
 import com.example.characterchat.ai.AiClientException;
 import com.example.characterchat.ai.AiTextRequest;
+import com.example.characterchat.chat.api.ChatRequest;
 import com.example.characterchat.chat.api.ChatResponse;
 import com.example.characterchat.chat.domain.DirectKnowledgeRelation;
 import com.example.characterchat.chat.persistence.ChatMapper;
@@ -13,6 +14,7 @@ import com.example.characterchat.rag.application.RagService;
 import com.example.characterchat.review.domain.CharacterRecord;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -20,20 +22,40 @@ import java.util.Set;
 @Service
 public class ChatService {
 	private static final int MAX_QUESTION_LENGTH = 1000;
+	private static final int MAX_HISTORY_MESSAGE_LENGTH = 2000;
+	private static final int MAX_HISTORY_TOTAL_LENGTH = 10000;
+	private static final int MAX_HISTORY_MESSAGES = 6;
 	private static final String UNKNOWN_ANSWER = "글쎄, 그건 나도 잘 모르겠어.";
 	private static final String SYSTEM_RULES = """
 		당신은 제공된 캐릭터 프로필의 인물로 답합니다.
 		반드시 캐릭터의 1인칭과 결말 직후 시점을 유지하세요.
 		오직 제공된 원문 문단과 직접 KG 관계로 뒷받침되는 사실만 답하세요.
 		명시되지 않은 감정, 동기, 사건을 사실처럼 만들지 마세요.
-		질문에 직접 답하는 문장이 없어도 관련 행동, 대사, 사건이 있으면 supported=true로 반환하고 유용한 답변을 하세요.
-		이 경우 확인되지 않은 감정이나 동기는 단정하지 말고, 캐릭터의 말로 짧게 불확실성을 표현한 뒤 관련 행동이나 사건을 이어서 말하세요.
-		예: '글쎄, 그렇게 느꼈다고 딱 잘라 말하기는 어려워. 하지만 그때 나는 가만히 있지 않고 직접 맞섰어.'
+		질문을 직접 답하는 문장이 없어도 관련 행동, 대사, 사건이 있으면 supported=true로 반환하고 자연스러운 불확실성을 표현한 뒤 관련 행동이나 사건을 이어서 말하세요.
+		이 경우 확인되지 않은 감정이나 동기는 단정하지 말고 캐릭터의 말로 짧게 불확실성을 표현하세요.
 		관련 행동, 대사, 사건조차 제공되지 않은 경우에만 supported=false로 반환하세요.
 		답변에서 '원문', '검색 결과', '근거', '확인할 수 없다', '정보가 없다' 같은 분석 시스템 표현을 사용하지 마세요.
 		답변은 캐릭터의 말투로 자연스럽고 간결하게 1~4문장으로 작성하세요.
 		supported=true이면 실제 사용한 paragraphId 또는 relationId를 하나 이상 반환하세요.
 		usedParagraphIds와 usedRelationIds에는 제공된 ID만 넣으세요.
+		대화 기록은 대명사와 생략 표현을 이해하기 위한 문맥일 뿐 사실 근거가 아닙니다. 이전 캐릭터 답변의 내용을 새로운 사실의 근거로 사용하지 마세요.
+		""";
+	private static final String REWRITE_RULES = """
+		당신은 대화의 현재 질문을 검색에 사용할 독립 질문으로 정리합니다. 질문에 답하지 마세요.
+		최근 대화는 대명사, 지시어, 생략된 대상과 시점을 해석할 때만 사용하세요.
+		현재 질문이 이미 독립적이고 명확하면 표현을 바꾸지 말고 standaloneQuery에 그대로 반환하세요.
+		대화에 없는 사실을 추가하거나 질문의 범위를 넓히거나 좁히지 마세요.
+		대상이 하나로 결정되면 resolved=true, 독립 질문, 빈 ambiguousReference, 빈 referentCandidates를 반환하세요.
+		둘 이상의 대상이 가능하거나 하나로 정할 수 없으면 resolved=false, 빈 standaloneQuery, 모호한 표현, 가능한 후보 목록을 반환하세요.
+		후보를 특정할 수 없다면 referentCandidates는 빈 목록으로 반환하세요.
+		""";
+	private static final String CLARIFICATION_RULES = """
+		당신은 제공된 캐릭터 프로필의 인물로 답합니다.
+		현재 질문의 대상이 모호하므로 사실에 답하지 말고, 사용자가 누구 또는 무엇을 뜻하는지 한 문장으로 되물으세요.
+		후보가 있으면 후보를 자연스럽게 열거해 구체적으로 되묻고, 후보가 없으면 일반적으로 되물으세요.
+		캐릭터의 1인칭 시점과 말투를 유지하세요. 분석 시스템 용어를 말하지 마세요.
+		supported=false, 빈 usedParagraphIds, 빈 usedRelationIds를 반환하세요.
+		대화 기록과 이전 답변은 사실 근거가 아닙니다.
 		""";
 
 	private final AiClient aiClient;
@@ -49,30 +71,80 @@ public class ChatService {
 	}
 
 	public ChatResponse chat(Long bookId, String rawQuestion) {
+		return chat(bookId, rawQuestion, List.of());
+	}
+
+	public ChatResponse chat(Long bookId, String rawQuestion, List<ChatRequest.HistoryMessage> rawHistory) {
 		String question = validateQuestion(rawQuestion);
+		List<ChatRequest.HistoryMessage> history = normalizeHistory(rawHistory);
 		CharacterRecord character = profileMapper.findChatEnabledCharacterByBookId(bookId);
-		if (character == null) throw new ChatException("대화 가능 캐릭터를 먼저 선택해야 합니다.");
+		if (character == null) throw new ChatException("대화 가능한 캐릭터를 먼저 선택해야 합니다.");
 		CharacterProfile profile = profileMapper.findProfileByBookId(bookId);
 		if (profile == null) throw new ChatException("캐릭터 프로필을 먼저 생성해야 합니다.");
-		RagSearchResponse rag = ragService.search(bookId, question);
-		List<DirectKnowledgeRelation> relations = chatMapper.findDirectRelations(bookId, character.knowledgeEntityId());
+
+		RewriteResult rewrite = rewriteQuestion(question, history);
 		try {
-			ChatAiResponse ai = aiClient.generateStructured(new AiTextRequest(
-					SYSTEM_RULES + "\n\n캐릭터 프로필 지침:\n" + profile.getSystemPrompt(),
-					prompt(question, character, profile, rag, relations)), ChatAiResponse.class);
-			ChatResponse response = validateAndBuild(bookId, character, profile, rag, relations, ai);
+			ChatResponse response = rewrite.resolved()
+					? answer(bookId, question, history, rewrite, character, profile)
+					: clarify(bookId, question, history, rewrite, character, profile);
 			chatMapper.updateBookStatus(bookId, "CHAT_READY");
 			return response;
 		} catch (ChatGenerationException exception) {
 			throw exception;
 		} catch (AiClientException exception) {
-			throw new ChatGenerationException("AI 캐릭터 답변 생성에 실패했습니다.", exception);
+			throw new ChatGenerationException("AI 캐릭터 응답 생성에 실패했습니다.", exception);
 		}
 	}
 
+	private RewriteResult rewriteQuestion(String question, List<ChatRequest.HistoryMessage> history) {
+		if (history.isEmpty()) return RewriteResult.notAttempted(question);
+		try {
+			ChatRewriteAiResponse ai = aiClient.generateStructured(new AiTextRequest(
+					REWRITE_RULES, rewritePrompt(question, history)), ChatRewriteAiResponse.class);
+			return validateRewrite(ai);
+		} catch (AiClientException | RewriteValidationException exception) {
+			return RewriteResult.fallback(question);
+		}
+	}
+
+	private RewriteResult validateRewrite(ChatRewriteAiResponse ai) {
+		if (ai == null) throw new RewriteValidationException();
+		List<String> candidates = cleanCandidates(ai.referentCandidates);
+		if (ai.resolved) {
+			if (ai.standaloneQuery == null || ai.standaloneQuery.isBlank()) throw new RewriteValidationException();
+			String standalone = ai.standaloneQuery.strip();
+			if (standalone.length() > MAX_QUESTION_LENGTH) throw new RewriteValidationException();
+			return new RewriteResult(true, true, false, standalone, "", List.of());
+		}
+		String reference = ai.ambiguousReference == null ? "" : ai.ambiguousReference.strip();
+		return new RewriteResult(true, false, false, "", reference, candidates);
+	}
+
+	private ChatResponse answer(Long bookId, String originalQuestion, List<ChatRequest.HistoryMessage> history,
+	                            RewriteResult rewrite, CharacterRecord character, CharacterProfile profile) {
+		RagSearchResponse rag = ragService.search(bookId, rewrite.standaloneQuery());
+		List<DirectKnowledgeRelation> relations = chatMapper.findDirectRelations(bookId, character.knowledgeEntityId());
+		ChatAiResponse ai = aiClient.generateStructured(new AiTextRequest(
+				SYSTEM_RULES + "\n\n캐릭터 프로필 지침\n" + profile.getSystemPrompt(),
+				answerPrompt(originalQuestion, history, rewrite.standaloneQuery(), character, profile, rag, relations)),
+				ChatAiResponse.class);
+		return validateAndBuild(bookId, character, profile, rag, relations, rewrite, ai);
+	}
+
+	private ChatResponse clarify(Long bookId, String question, List<ChatRequest.HistoryMessage> history,
+	                             RewriteResult rewrite, CharacterRecord character, CharacterProfile profile) {
+		ChatAiResponse ai = aiClient.generateStructured(new AiTextRequest(
+				CLARIFICATION_RULES + "\n\n캐릭터 프로필 지침\n" + profile.getSystemPrompt(),
+				clarificationPrompt(question, history, rewrite, character)), ChatAiResponse.class);
+		String answer = required(ai == null ? null : ai.answer);
+		return new ChatResponse(bookId, characterSummary(character, profile), answer, false, "CLARIFICATION",
+				new ChatResponse.Debug(List.of(), List.of(), List.of(), List.of(), rewrite.debug()));
+	}
+
 	private ChatResponse validateAndBuild(Long bookId, CharacterRecord character, CharacterProfile profile,
-	                                      RagSearchResponse rag, List<DirectKnowledgeRelation> relations, ChatAiResponse ai) {
-		if (ai == null) throw new ChatGenerationException("AI 캐릭터 답변이 없습니다.");
+	                                      RagSearchResponse rag, List<DirectKnowledgeRelation> relations,
+	                                      RewriteResult rewrite, ChatAiResponse ai) {
+		if (ai == null) throw new ChatGenerationException("AI 캐릭터 응답이 없습니다.");
 		List<Long> paragraphIds = ai.usedParagraphIds == null ? List.of() : ai.usedParagraphIds.stream().distinct().toList();
 		List<Long> relationIds = ai.usedRelationIds == null ? List.of() : ai.usedRelationIds.stream().distinct().toList();
 		Set<Long> allowedParagraphs = new HashSet<>();
@@ -81,20 +153,32 @@ public class ChatService {
 		if (!allowedParagraphs.containsAll(paragraphIds)) throw new ChatGenerationException("AI가 제공되지 않은 원문 문단을 근거로 선택했습니다.");
 		if (!allowedRelations.containsAll(relationIds)) throw new ChatGenerationException("AI가 제공되지 않은 KG 관계를 근거로 선택했습니다.");
 		if (ai.supported && paragraphIds.isEmpty() && relationIds.isEmpty())
-			throw new ChatGenerationException("근거가 있다고 판단한 답변에는 원문 또는 KG 근거가 필요합니다.");
+			throw new ChatGenerationException("근거가 있다고 판단한 응답에는 원문 또는 KG 근거가 필요합니다.");
 		String answer = ai.supported ? required(ai.answer) : UNKNOWN_ANSWER;
 		List<Long> usedParagraphs = ai.supported ? paragraphIds : List.of();
 		List<Long> usedRelations = ai.supported ? relationIds : List.of();
-		return new ChatResponse(bookId,
-				new ChatResponse.CharacterSummary(character.id(), character.name(), character.narrativeRole(), profile.getStoryPoint()),
-				answer, ai.supported,
-				new ChatResponse.Debug(usedParagraphs, usedRelations, rag.ranges(), relations));
+		return new ChatResponse(bookId, characterSummary(character, profile), answer, ai.supported,
+				ai.supported ? "ANSWER" : "UNKNOWN",
+				new ChatResponse.Debug(usedParagraphs, usedRelations, rag.ranges(), relations, rewrite.debug()));
 	}
 
-	private String prompt(String question, CharacterRecord character, CharacterProfile profile,
-	                      RagSearchResponse rag, List<DirectKnowledgeRelation> relations) {
+	private ChatResponse.CharacterSummary characterSummary(CharacterRecord character, CharacterProfile profile) {
+		return new ChatResponse.CharacterSummary(character.id(), character.name(), character.narrativeRole(), profile.getStoryPoint());
+	}
+
+	private String rewritePrompt(String question, List<ChatRequest.HistoryMessage> history) {
+		return "최근 대화:\n" + formatHistory(history) + "\n현재 질문: " + question;
+	}
+
+	private String answerPrompt(String originalQuestion, List<ChatRequest.HistoryMessage> history, String standaloneQuery,
+	                            CharacterRecord character, CharacterProfile profile, RagSearchResponse rag,
+	                            List<DirectKnowledgeRelation> relations) {
 		StringBuilder value = new StringBuilder();
-		value.append("질문: ").append(question).append("\n\n캐릭터: ").append(character.name())
+		value.append("최근 대화(문맥 전용, 사실 근거 아님):\n").append(formatHistory(history))
+				.append("\n사용자의 현재 질문: ").append(originalQuestion)
+				.append("\n검색용으로 해석한 독립 질문: ").append(standaloneQuery)
+				.append("\n현재 질문에 답하세요. 독립 질문은 해석과 검색을 위한 보조 정보일 뿐입니다.")
+				.append("\n\n캐릭터: ").append(character.name())
 				.append("\n이야기 시점: ").append(profile.getStoryPoint())
 				.append("\n역할: ").append(profile.getRoleDescription())
 				.append("\n성격: ").append(profile.getPersonality())
@@ -115,6 +199,54 @@ public class ChatService {
 		return value.toString();
 	}
 
+	private String clarificationPrompt(String question, List<ChatRequest.HistoryMessage> history,
+	                                   RewriteResult rewrite, CharacterRecord character) {
+		return "캐릭터: " + character.name() + "\n최근 대화:\n" + formatHistory(history)
+				+ "\n현재 질문: " + question
+				+ "\n모호한 표현: " + rewrite.ambiguousReference()
+				+ "\n가능한 대상 후보: " + (rewrite.referentCandidates().isEmpty() ? "없음" : String.join(", ", rewrite.referentCandidates()));
+	}
+
+	private String formatHistory(List<ChatRequest.HistoryMessage> history) {
+		if (history.isEmpty()) return "없음\n";
+		StringBuilder value = new StringBuilder();
+		history.forEach(message -> value.append(message.role()).append(": ").append(message.content()).append('\n'));
+		return value.toString();
+	}
+
+	private List<ChatRequest.HistoryMessage> normalizeHistory(List<ChatRequest.HistoryMessage> rawHistory) {
+		if (rawHistory == null || rawHistory.isEmpty()) return List.of();
+		List<ChatRequest.HistoryMessage> validated = new ArrayList<>();
+		for (ChatRequest.HistoryMessage message : rawHistory) {
+			if (message == null || message.role() == null || message.content() == null || message.content().isBlank())
+				throw new ChatException("대화 기록의 역할과 내용은 비어 있을 수 없습니다.");
+			String role = message.role().strip().toUpperCase();
+			if (!role.equals("USER") && !role.equals("ASSISTANT"))
+				throw new ChatException("대화 기록 역할은 USER 또는 ASSISTANT여야 합니다.");
+			String content = message.content().strip();
+			if (content.length() > MAX_HISTORY_MESSAGE_LENGTH)
+				throw new ChatException("과거 메시지는 하나당 2000자를 넘을 수 없습니다.");
+			validated.add(new ChatRequest.HistoryMessage(role, content));
+		}
+		int start = Math.max(0, validated.size() - MAX_HISTORY_MESSAGES);
+		List<ChatRequest.HistoryMessage> recent = validated.subList(start, validated.size());
+		int total = 0;
+		int keepFrom = recent.size();
+		for (int i = recent.size() - 1; i >= 0; i--) {
+			int next = total + recent.get(i).content().length();
+			if (next > MAX_HISTORY_TOTAL_LENGTH) break;
+			total = next;
+			keepFrom = i;
+		}
+		return List.copyOf(recent.subList(keepFrom, recent.size()));
+	}
+
+	private List<String> cleanCandidates(List<String> values) {
+		if (values == null) return List.of();
+		return values.stream().filter(value -> value != null && !value.isBlank())
+				.map(String::strip).distinct().limit(5).toList();
+	}
+
 	private String validateQuestion(String value) {
 		if (value == null || value.isBlank()) throw new ChatException("질문은 비어 있을 수 없습니다.");
 		String stripped = value.strip();
@@ -123,7 +255,25 @@ public class ChatService {
 	}
 
 	private String required(String value) {
-		if (value == null || value.isBlank()) throw new ChatGenerationException("근거가 있는 AI 답변의 내용이 비어 있습니다.");
+		if (value == null || value.isBlank()) throw new ChatGenerationException("AI 응답 내용이 비어 있습니다.");
 		return value.strip();
 	}
+
+	private record RewriteResult(boolean attempted, boolean resolved, boolean fallback, String standaloneQuery,
+	                             String ambiguousReference, List<String> referentCandidates) {
+		static RewriteResult notAttempted(String question) {
+			return new RewriteResult(false, true, false, question, "", List.of());
+		}
+
+		static RewriteResult fallback(String question) {
+			return new RewriteResult(true, true, true, question, "", List.of());
+		}
+
+		ChatResponse.Rewrite debug() {
+			return new ChatResponse.Rewrite(attempted, resolved, fallback, standaloneQuery,
+					ambiguousReference, referentCandidates);
+		}
+	}
+
+	private static class RewriteValidationException extends RuntimeException { }
 }

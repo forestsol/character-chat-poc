@@ -4,11 +4,11 @@ import * as Tabs from "@radix-ui/react-tabs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BookOpen, Bot, CheckCircle2, ChevronDown, CircleAlert, Database, LoaderCircle,
-  FlaskConical, MessageCircle, Network, RefreshCw, Search, Send, Sparkles, UserRound
+  FlaskConical, MessageCircle, Network, RefreshCw, RotateCcw, Search, Send, Sparkles, UserRound
 } from "lucide-react";
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
-import type { CharacterProfile, DirectRelation, RagRange } from "@/lib/types";
+import type { CharacterProfile, ChatMessage, ChatResponse, DirectRelation, RagRange } from "@/lib/types";
 
 const profileFields: Array<[keyof CharacterProfile, string]> = [
   ["roleDescription", "이야기 속 역할"], ["appearance", "외형"], ["personality", "성격"],
@@ -20,6 +20,8 @@ export default function Home() {
   const queryClient = useQueryClient();
   const [bookId, setBookId] = useState<number | null>(null);
   const [question, setQuestion] = useState("");
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [lastResponse, setLastResponse] = useState<ChatResponse | null>(null);
   const books = useQuery({ queryKey: ["books"], queryFn: api.books });
 
   useEffect(() => {
@@ -36,8 +38,16 @@ export default function Home() {
     queryKey: ["kg", bookId], queryFn: () => api.kg(bookId!), enabled: bookId !== null, retry: false
   });
   const chat = useMutation({
-    mutationFn: (value: string) => api.chat(bookId!, value),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["books"] })
+    mutationFn: ({ value, history }: { value: string; history: ChatMessage[] }) => api.chat(bookId!, value, history),
+    onSuccess: (response, variables) => {
+      setMessages((current) => [...current,
+        { role: "USER", content: variables.value },
+        { role: "ASSISTANT", content: response.answer, responseType: response.responseType }
+      ]);
+      setLastResponse(response);
+      setQuestion("");
+      queryClient.invalidateQueries({ queryKey: ["books"] });
+    }
   });
 
   const selectedBook = books.data?.find((book) => book.id === bookId);
@@ -47,7 +57,14 @@ export default function Home() {
   function submit(event: FormEvent) {
     event.preventDefault();
     const value = question.trim();
-    if (value && bookId !== null && !chat.isPending) chat.mutate(value);
+    if (value && bookId !== null && !chat.isPending) chat.mutate({ value, history: messages.slice(-6) });
+  }
+
+  function resetConversation() {
+    setMessages([]);
+    setLastResponse(null);
+    setQuestion("");
+    chat.reset();
   }
 
   return (
@@ -62,7 +79,7 @@ export default function Home() {
             <a href="http://localhost:7860" target="_blank" rel="noreferrer" className="flex h-11 items-center gap-2 rounded-xl bg-ink px-4 text-sm font-semibold text-white"><FlaskConical size={16} /> Gradio QA</a>
             {books.isFetching && <LoaderCircle className="animate-spin text-moss" size={18} />}
             <div className="relative">
-              <select className="select-field" value={bookId ?? ""} onChange={(e) => { setBookId(Number(e.target.value)); chat.reset(); }} disabled={!books.data?.length}>
+              <select className="select-field" value={bookId ?? ""} onChange={(e) => { setBookId(Number(e.target.value)); resetConversation(); }} disabled={!books.data?.length}>
                 {!books.data?.length && <option value="">등록된 책 없음</option>}
                 {books.data?.map((book) => <option key={book.id} value={book.id}>{book.title}</option>)}
               </select>
@@ -116,21 +133,31 @@ export default function Home() {
                       <div className="flex items-center gap-3 border-b border-black/5 pb-5">
                         <div className="avatar avatar-large">{activeCharacter?.name?.slice(0, 1) ?? "?"}</div>
                         <div><p className="font-serif text-xl font-semibold text-ink">{activeCharacter?.name ?? "대화 캐릭터 미선택"}</p><p className="text-sm text-slate-500">{profile.data?.storyPoint === "AFTER_FINAL_EVENT" ? "이야기가 끝난 직후" : "프로필을 확인하는 중"}</p></div>
-                        <span className="ml-auto flex items-center gap-1.5 text-xs font-semibold text-moss"><span className="h-2 w-2 rounded-full bg-emerald-500" /> 근거 기반 응답</span>
+                        <span className="ml-auto hidden items-center gap-1.5 text-xs font-semibold text-moss sm:flex"><span className="h-2 w-2 rounded-full bg-emerald-500" /> 근거 기반 응답</span>
+                        <button type="button" onClick={resetConversation} disabled={chat.isPending || messages.length === 0}
+                          className="flex items-center gap-1.5 rounded-xl border border-black/10 bg-white px-3 py-2 text-xs font-semibold text-slate-600 disabled:opacity-40">
+                          <RotateCcw size={14} /> 새 대화
+                        </button>
                       </div>
-                      <div className="flex flex-1 flex-col justify-end gap-4 py-7">
-                        {!chat.data && !chat.isPending && !chat.isError && <Welcome name={activeCharacter?.name} />}
-                        {chat.variables && <div className="ml-auto max-w-[82%] rounded-[1.4rem_1.4rem_.35rem_1.4rem] bg-ink px-5 py-3.5 text-sm leading-6 text-white">{chat.variables}</div>}
+                      <div className="flex flex-1 flex-col justify-end gap-4 overflow-y-auto py-7">
+                        {messages.length === 0 && !chat.isPending && !chat.isError && <Welcome name={activeCharacter?.name} />}
+                        {messages.map((message, index) => message.role === "USER" ?
+                          <div key={index} className="ml-auto max-w-[82%] rounded-[1.4rem_1.4rem_.35rem_1.4rem] bg-ink px-5 py-3.5 text-sm leading-6 text-white">{message.content}</div> :
+                          <div key={index} className="max-w-[88%] rounded-[1.4rem_1.4rem_1.4rem_.35rem] bg-white px-5 py-4 shadow-sm">
+                            <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-moss">
+                              {message.responseType === "ANSWER" ? <><CheckCircle2 size={14} /> 근거 확인됨</> : message.responseType === "CLARIFICATION" ? <><MessageCircle size={14} /> 대상 확인</> : <><CircleAlert size={14} /> 확인 가능한 근거 없음</>}
+                            </div><p className="leading-7 text-ink">{message.content}</p>
+                          </div>)}
+                        {chat.isPending && chat.variables && <div className="ml-auto max-w-[82%] rounded-[1.4rem_1.4rem_.35rem_1.4rem] bg-ink px-5 py-3.5 text-sm leading-6 text-white">{chat.variables.value}</div>}
                         {chat.isPending && <div className="flex max-w-[82%] items-center gap-3 rounded-[1.4rem_1.4rem_1.4rem_.35rem] bg-white px-5 py-4 text-sm text-slate-500 shadow-sm"><LoaderCircle className="animate-spin text-copper" size={18} /> 원문과 관계를 살펴보는 중이에요…</div>}
                         {chat.isError && <InlineError message={errorMessage(chat.error)} />}
-                        {chat.data && <div className="max-w-[88%] rounded-[1.4rem_1.4rem_1.4rem_.35rem] bg-white px-5 py-4 shadow-sm"><div className="mb-2 flex items-center gap-2 text-xs font-semibold text-moss">{chat.data.grounded ? <><CheckCircle2 size={14} /> 근거 확인됨</> : <><CircleAlert size={14} /> 확인 가능한 근거 없음</>}</div><p className="leading-7 text-ink">{chat.data.answer}</p></div>}
                       </div>
                       <form onSubmit={submit} className="question-box">
                         <textarea value={question} onChange={(e) => setQuestion(e.target.value)} maxLength={1000} rows={2} placeholder={`${activeCharacter?.name ?? "캐릭터"}에게 질문해 보세요`} disabled={!activeCharacter || chat.isPending} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); e.currentTarget.form?.requestSubmit(); } }} />
                         <button type="submit" disabled={!question.trim() || !activeCharacter || chat.isPending} aria-label="질문 보내기"><Send size={18} /></button>
                       </form>
                     </div>
-                    <EvidencePanel ranges={chat.data?.debug.ragRanges ?? []} relations={chat.data?.debug.directRelations ?? []} usedParagraphs={chat.data?.debug.usedParagraphIds ?? []} usedRelations={chat.data?.debug.usedRelationIds ?? []} />
+                    <EvidencePanel ranges={lastResponse?.debug.ragRanges ?? []} relations={lastResponse?.debug.directRelations ?? []} usedParagraphs={lastResponse?.debug.usedParagraphIds ?? []} usedRelations={lastResponse?.debug.usedRelationIds ?? []} />
                   </div>
                 </Tabs.Content>
 

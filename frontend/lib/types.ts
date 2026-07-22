@@ -29,12 +29,24 @@ export type DirectRelation = {
   id: number; sourceName: string; sourceType: string; relationType: string; targetName: string;
   targetType: string; description: string; confidence: number; reviewStatus: string;
 };
+export type ChatMessage = {
+  role: "USER" | "ASSISTANT";
+  content: string;
+  responseType?: "ANSWER" | "CLARIFICATION" | "UNKNOWN";
+};
 export type ChatResponse = {
   bookId: number;
   character: { id: number; name: string; narrativeRole: string; storyPoint: string };
   answer: string;
   grounded: boolean;
-  debug: { usedParagraphIds: number[]; usedRelationIds: number[]; ragRanges: RagRange[]; directRelations: DirectRelation[] };
+  responseType: "ANSWER" | "CLARIFICATION" | "UNKNOWN";
+  debug: {
+    usedParagraphIds: number[]; usedRelationIds: number[]; ragRanges: RagRange[]; directRelations: DirectRelation[];
+    rewrite: {
+      attempted: boolean; resolved: boolean; fallback: boolean; standaloneQuery: string;
+      ambiguousReference: string; referentCandidates: string[];
+    };
+  };
 };
 
 export type KnowledgeGraph = {

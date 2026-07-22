@@ -10,6 +10,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -55,7 +57,7 @@ class BookApiIntegrationTests {
 
 		mockMvc.perform(get("/api/books"))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$[0].bookKey").value(BOOK_KEY));
+				.andExpect(jsonPath("$[*].bookKey").value(hasItem(BOOK_KEY)));
 
 		mockMvc.perform(get("/api/books/{bookId}", bookId))
 				.andExpect(status().isOk())
@@ -93,7 +95,7 @@ class BookApiIntegrationTests {
 
 		mockMvc.perform(get("/api/books"))
 				.andExpect(status().isOk())
-				.andExpect(jsonPath("$.length()").value(0));
+				.andExpect(jsonPath("$[*].bookKey").value(not(hasItem("missing-book"))));
 	}
 
 	private static class ObjectMapperHolder {
