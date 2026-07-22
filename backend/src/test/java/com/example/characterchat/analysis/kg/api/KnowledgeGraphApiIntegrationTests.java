@@ -60,6 +60,20 @@ class KnowledgeGraphApiIntegrationTests {
 				.andExpect(status().isOk()).andExpect(jsonPath("$.entities.length()").value(0));
 	}
 
+	@Test
+	void 후보에_없는_관계_주체나_대상만_제외하고_사건은_저장한다() throws Exception {
+		long bookId = importAndExtractCandidates();
+		KgExtractionAiResponse response = kgResponse(2);
+		response.relations.get(0).targetCandidateName = "다른 동물과 새들";
+		fakeAiClient.enqueueStructuredResponse(KgExtractionAiResponse.class, response);
+
+		mockMvc.perform(post("/api/books/{bookId}/kg/build", bookId))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.events.length()").value(1))
+				.andExpect(jsonPath("$.events[0].participants.length()").value(2))
+				.andExpect(jsonPath("$.relations.length()").value(0));
+	}
+
 	private long importAndExtractCandidates() throws Exception {
 		String json = mockMvc.perform(post("/api/books/import").contentType(MediaType.APPLICATION_JSON)
 				.content("{\"bookDirectory\":\"alice-demo\"}"))

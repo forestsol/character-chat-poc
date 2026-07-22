@@ -16,6 +16,8 @@ import com.example.characterchat.book.domain.BookPage;
 import com.example.characterchat.book.domain.BookParagraph;
 import com.example.characterchat.book.persistence.BookMapper;
 import com.example.characterchat.common.exception.BookNotFoundException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,9 +33,12 @@ import java.util.stream.Collectors;
 
 @Service
 public class KnowledgeGraphService {
+	private static final Logger log = LoggerFactory.getLogger(KnowledgeGraphService.class);
 	private static final String SYSTEM_PROMPT = """
 			당신은 책의 원문, 개체 후보와 이미지 관찰 사실에서 주요 사건과 직접 관계를 추출합니다.
 			제공된 후보 이름만 사건 참여자와 관계의 주체·대상으로 사용하세요.
+			관계의 sourceCandidateName과 targetCandidateName에는 후보 목록의 이름을 줄이거나 합치지 말고 정확히 하나씩 그대로 사용하세요.
+			후보 목록에 없는 집합명, 일반명, 새 이름으로 관계를 만들지 마세요.
 			사건은 이야기 순서대로 1부터 sequenceOrder를 부여하세요.
 			관계 유형은 FOLLOWED, MET, POSSESSES 같은 의미의 대문자 스네이크 표기로 작성하세요.
 			복잡한 추론, 성격 판단, 최단 경로와 다단계 관계는 만들지 마세요.
@@ -121,9 +126,14 @@ public class KnowledgeGraphService {
 		}
 		List<RelationDraft> relations = new ArrayList<>();
 		for (KgExtractionAiResponse.Relation relation : response.relations) {
-			EntityCandidate source = candidates.find(required(relation.sourceCandidateName, "relation source"));
-			EntityCandidate target = candidates.find(required(relation.targetCandidateName, "relation target"));
-			if (source == null || target == null) throw new KnowledgeGraphException("존재하지 않는 관계 주체 또는 대상입니다.");
+			String sourceName = relation.sourceCandidateName == null ? "" : relation.sourceCandidateName.strip();
+			String targetName = relation.targetCandidateName == null ? "" : relation.targetCandidateName.strip();
+			EntityCandidate source = candidates.find(sourceName);
+			EntityCandidate target = candidates.find(targetName);
+			if (source == null || target == null) {
+				log.warn("후보에 연결할 수 없는 KG 관계를 제외합니다: source='{}', target='{}'", sourceName, targetName);
+				continue;
+			}
 			if (source.getId().equals(target.getId())) throw new KnowledgeGraphException("자기 자신을 향하는 관계는 저장하지 않습니다.");
 			String type = required(relation.relationType, "relationType").toUpperCase(Locale.ROOT);
 			if (!type.matches("[A-Z][A-Z0-9_]*")) throw new KnowledgeGraphException("relationType은 대문자 스네이크 표기여야 합니다: " + type);
