@@ -94,11 +94,15 @@ public class KnowledgeGraphService {
 				image -> "pageNumber=" + pageNumbers.get(image.pageId()) + ", imageOrder=" + image.imageOrder()));
 		String text = paragraphs.stream().map(p -> "[sourceOrder=" + p.sourceOrder() + "] " + p.content()).collect(Collectors.joining("\n\n"));
 		String candidateText = candidates.stream().map(c -> "- " + c.getEntityType() + ": " + c.getCanonicalName()).collect(Collectors.joining("\n"));
+		String imageCoordinates = images.isEmpty() ? "없음" : images.stream()
+				.map(image -> "- pageNumber=" + pageNumbers.get(image.pageId()) + ", imageOrder=" + image.imageOrder())
+				.collect(Collectors.joining("\n"));
 		String factText = facts.isEmpty() ? "없음" : facts.stream().map(f -> "- " + f.getFactType() + " / "
 				+ (f.getSubjectCandidateId() == null ? "주체 미정" : index.byId(f.getSubjectCandidateId()).getCanonicalName())
 				+ " / " + f.getValue() + " / " + imageLocations.getOrDefault(f.getImageId(), "이미지 위치 미상"))
 				.collect(Collectors.joining("\n"));
 		return "책 제목: " + book.getTitle() + "\n\n개체 후보:\n" + candidateText
+				+ "\n\n사용 가능한 이미지 근거 좌표:\n" + imageCoordinates
 				+ "\n\n이미지 관찰 사실:\n" + factText + "\n\n전체 원문:\n" + text;
 	}
 
@@ -108,11 +112,13 @@ public class KnowledgeGraphService {
 		Map<Integer, BookParagraph> paragraphIndex = paragraphs.stream().collect(Collectors.toMap(BookParagraph::sourceOrder, Function.identity()));
 		Map<Long, Integer> pageNumbers = pages.stream().collect(Collectors.toMap(BookPage::getId, BookPage::getPageNumber));
 		Map<String, BookImage> imageIndex = images.stream().collect(Collectors.toMap(i -> pageNumbers.get(i.pageId()) + ":" + i.imageOrder(), Function.identity()));
+		Map<Integer, List<BookImage>> imagesByPage = images.stream()
+				.collect(Collectors.groupingBy(image -> pageNumbers.get(image.pageId())));
 		List<EventDraft> events = new ArrayList<>();
 		for (KgExtractionAiResponse.Event event : response.events) {
 			String name = required(event.name, "event name"); String description = required(event.description, "event description");
 			if (event.sequenceOrder < 1) throw new KnowledgeGraphException("sequenceOrder는 1 이상이어야 합니다.");
-			confidence(event.confidence); EvidenceRef evidence = evidence(event.evidence, paragraphIndex, imageIndex);
+			confidence(event.confidence); EvidenceRef evidence = evidence(event.evidence, paragraphIndex, imageIndex, imagesByPage);
 			if (event.participants == null || event.participants.isEmpty()) throw new KnowledgeGraphException(name + " 사건에 참여자가 없습니다.");
 			List<ParticipantDraft> participants = new ArrayList<>(); Set<String> participantKeys = new HashSet<>();
 			for (KgExtractionAiResponse.Participant participant : event.participants) {
@@ -120,7 +126,7 @@ public class KnowledgeGraphService {
 				if (candidate == null) throw new KnowledgeGraphException("존재하지 않는 사건 참여자입니다: " + participant.candidateName);
 				String role = required(participant.role, "participant role");
 				if (participantKeys.add(candidate.getId() + ":" + role)) participants.add(new ParticipantDraft(candidate.getId(), role,
-						evidence(participant.evidence, paragraphIndex, imageIndex)));
+						evidence(participant.evidence, paragraphIndex, imageIndex, imagesByPage)));
 			}
 			events.add(new EventDraft(name, description, event.sequenceOrder, event.confidence, evidence, participants));
 		}
@@ -139,16 +145,28 @@ public class KnowledgeGraphService {
 			if (!type.matches("[A-Z][A-Z0-9_]*")) throw new KnowledgeGraphException("relationType은 대문자 스네이크 표기여야 합니다: " + type);
 			confidence(relation.confidence);
 			relations.add(new RelationDraft(source.getId(), type, target.getId(), required(relation.description, "relation description"),
-					relation.confidence, evidence(relation.evidence, paragraphIndex, imageIndex)));
+					relation.confidence, evidence(relation.evidence, paragraphIndex, imageIndex, imagesByPage)));
 		}
 		return new ValidatedDraft(events, relations);
 	}
 
-	private EvidenceRef evidence(KgExtractionAiResponse.Evidence value, Map<Integer, BookParagraph> paragraphs, Map<String, BookImage> images) {
+	private EvidenceRef evidence(KgExtractionAiResponse.Evidence value, Map<Integer, BookParagraph> paragraphs,
+	                            Map<String, BookImage> images, Map<Integer, List<BookImage>> imagesByPage) {
 		if (value == null) throw new KnowledgeGraphException("근거가 없습니다.");
 		Long paragraphId = null; Long imageId = null;
 		if (value.sourceOrder > 0) { BookParagraph p = paragraphs.get(value.sourceOrder); if (p == null) throw new KnowledgeGraphException("없는 sourceOrder입니다: " + value.sourceOrder); paragraphId = p.id(); }
-		if (value.pageNumber > 0 || value.imageOrder > 0) { BookImage i = images.get(value.pageNumber + ":" + value.imageOrder); if (i == null) throw new KnowledgeGraphException("없는 이미지 근거입니다: " + value.pageNumber + ":" + value.imageOrder); imageId = i.id(); }
+		if (value.pageNumber > 0 || value.imageOrder > 0) {
+			BookImage image = images.get(value.pageNumber + ":" + value.imageOrder);
+			if (image == null) {
+				List<BookImage> pageImages = imagesByPage.getOrDefault(value.pageNumber, List.of());
+				if (pageImages.size() == 1) {
+					image = pageImages.get(0);
+					log.warn("KG 이미지 근거 순번을 페이지의 유일한 이미지로 교정합니다: requested={}:{}, actual={}:{}",
+							value.pageNumber, value.imageOrder, value.pageNumber, image.imageOrder());
+				} else throw new KnowledgeGraphException("없는 이미지 근거입니다: " + value.pageNumber + ":" + value.imageOrder);
+			}
+			imageId = image.id();
+		}
 		if (paragraphId == null && imageId == null) throw new KnowledgeGraphException("텍스트 또는 이미지 근거가 필요합니다.");
 		return new EvidenceRef(paragraphId, imageId);
 	}

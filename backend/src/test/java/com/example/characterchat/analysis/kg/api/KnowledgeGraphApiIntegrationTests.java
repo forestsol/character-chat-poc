@@ -74,6 +74,23 @@ class KnowledgeGraphApiIntegrationTests {
 				.andExpect(jsonPath("$.relations.length()").value(0));
 	}
 
+	@Test
+	void 페이지에_이미지가_하나면_잘못된_imageOrder를_유일한_이미지로_교정한다() throws Exception {
+		long bookId = importAndExtractCandidates();
+		KgExtractionAiResponse response = kgResponse(2);
+		KgExtractionAiResponse.Evidence imageEvidence = response.events.get(0).evidence;
+		imageEvidence.sourceOrder = 0;
+		imageEvidence.pageNumber = 2;
+		imageEvidence.imageOrder = 2;
+		fakeAiClient.enqueueStructuredResponse(KgExtractionAiResponse.class, response);
+
+		mockMvc.perform(post("/api/books/{bookId}/kg/build", bookId))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.events[0].evidenceParagraphId").doesNotExist())
+				.andExpect(jsonPath("$.events[0].evidenceImageId").isNumber())
+				.andExpect(jsonPath("$.relations[0].evidenceImageId").isNumber());
+	}
+
 	private long importAndExtractCandidates() throws Exception {
 		String json = mockMvc.perform(post("/api/books/import").contentType(MediaType.APPLICATION_JSON)
 				.content("{\"bookDirectory\":\"alice-demo\"}"))
