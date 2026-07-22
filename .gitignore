@@ -22,5 +22,11 @@ source-books/*
 test-books/*
 !test-books/.gitkeep
 
+test-nicksgo/
+
 # 개인 학습용 프로젝트 해설 문서
 docs/project-learning-guide.md
+
+# 개인 발표 및 프로젝트 이해 자료
+docs/07-executive-presentation.md
+docs/08-project-brief.md
