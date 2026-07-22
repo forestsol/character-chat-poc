@@ -142,6 +142,25 @@ class ImageAnalysisApiIntegrationTests {
 				.andExpect(jsonPath("$.length()").value(10));
 	}
 
+	@Test
+	void 정확히_매칭된_후보의_entityType은_기존_후보_타입으로_교정한다() throws Exception {
+		long bookId = importBook();
+		enqueueAliceTextCandidate();
+		mockMvc.perform(post("/api/books/{bookId}/entity-candidates/extract", bookId)).andExpect(status().isOk());
+
+		ImageAnalysisAiResponse firstPage = imageResponse(true, 1, "TEXT_AND_IMAGE", "앨리스가 서 있다");
+		firstPage.entities.get(0).entityType = "OBJECT";
+		fakeAiClient.enqueueImageStructuredResponse(ImageAnalysisAiResponse.class, firstPage);
+		for (int page = 2; page <= 10; page++) {
+			fakeAiClient.enqueueImageStructuredResponse(ImageAnalysisAiResponse.class,
+					imageResponse(false, 1, "IMAGE", "페이지 " + page + "의 장면"));
+		}
+
+		mockMvc.perform(post("/api/books/{bookId}/image-analysis/analyze", bookId))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$[0].subjectCandidateId").isNumber());
+	}
+
 	private long importBook() throws Exception {
 		String json = mockMvc.perform(post("/api/books/import")
 						.contentType(MediaType.APPLICATION_JSON)

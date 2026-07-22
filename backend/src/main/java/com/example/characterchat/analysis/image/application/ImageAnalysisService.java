@@ -15,6 +15,8 @@ import com.example.characterchat.book.domain.BookPage;
 import com.example.characterchat.book.domain.BookParagraph;
 import com.example.characterchat.book.persistence.BookMapper;
 import com.example.characterchat.common.exception.BookNotFoundException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +34,7 @@ import java.util.stream.Collectors;
 
 @Service
 public class ImageAnalysisService {
+	private static final Logger log = LoggerFactory.getLogger(ImageAnalysisService.class);
 	private static final Set<String> FACT_TYPES = Set.of("APPEARANCE", "CLOTHING", "EXPRESSION", "ACTION",
 			"LOCATION", "INDOOR_OUTDOOR", "WEATHER", "TIME_OF_DAY", "OBJECT");
 	private static final Set<String> SOURCE_TYPES = Set.of("IMAGE", "TEXT_AND_IMAGE");
@@ -46,6 +49,7 @@ public class ImageAnalysisService {
 			status는 CONFIRMED, CANDIDATE, UNKNOWN, CONFLICT 중 하나만 사용하세요. OBSERVED 같은 다른 값은 사용하지 마세요.
 			관계, 사건, 보이지 않는 감정·동기·성격은 추론하지 마세요.
 			기존 후보와 확실히 같은 경우에만 matchedCandidateName에 제공된 정규 이름을 정확히 넣으세요.
+			matchedCandidateName을 넣었다면 entityType도 해당 기존 후보의 타입과 같아야 합니다.
 			이름을 특정할 수 없는 시각 개체는 entities에 넣지 마세요.
 			사실의 주체를 특정할 수 없으면 fact의 subjectName을 빈 문자열로 두고 CANDIDATE 또는 UNKNOWN을 사용하세요.
 			'다른 동물', '새들', '여러 사람' 같은 불특정 집합 표현도 subjectName에 넣지 말고 빈 문자열로 두세요.
@@ -158,7 +162,11 @@ public class ImageAnalysisService {
 			if (!matchedName.isBlank()) {
 				matched = candidates.find(matchedName);
 				if (matched == null) throw new ImageAnalysisException("존재하지 않는 matchedCandidateName입니다: " + matchedName);
-				if (matched.getEntityType() != type) throw new ImageAnalysisException("기존 후보와 entityType이 다릅니다: " + matchedName);
+				if (matched.getEntityType() != type) {
+					log.warn("이미지 개체 타입을 기존 후보 타입으로 교정합니다: name='{}', requested={}, actual={}",
+							matchedName, type, matched.getEntityType());
+					type = matched.getEntityType();
+				}
 				if (observedName.isBlank()) observedName = matched.getCanonicalName();
 			} else {
 				EntityCandidate byObservedName = candidates.find(observedName);
