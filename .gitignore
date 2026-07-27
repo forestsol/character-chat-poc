@@ -1,4 +1,30 @@
+# 로컬 환경 변수와 비밀값
 .env
+.env.*
+!.env.example
+
+# Codex 및 로컬 에이전트 설정
+.agents/
+.codex/
+
+# 운영체제와 편집기 임시 파일
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*.tmp
+*.bak
+*~
+
+# 실행 로그와 프로세스 파일
+*.log
+*.pid
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+hs_err_pid*
+
 .idea/
 .vscode/
 *.iml
@@ -15,6 +41,13 @@ frontend/tsconfig.tsbuildinfo
 
 qa/.venv/
 qa/__pycache__/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 
 source-books/*
 !source-books/.gitkeep
